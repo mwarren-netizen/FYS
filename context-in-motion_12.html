@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Context — FYS Module One · Video Two</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --night:#07070d; --railbg:#0a0913; --ink:#eae4d3; --ink-dim:#9a937f;
+    --amber:#d9a05b; --slate:#7f9bb3; --rose:#c4798a;
+    --rail: clamp(290px, 28vw, 390px);
+    --serif: Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  body.clean{ --rail: 0px; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    background: radial-gradient(120% 90% at 60% 10%, #0b0a16 0%, var(--night) 60%, #050509 100%);
+    color:var(--ink); font-family:var(--serif); overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  #webgl{ position:fixed; inset:0; z-index:0; opacity:0; transition:opacity 1.4s ease; cursor:none; }
+  #webgl.on{ opacity:1; }
+  #title{ position:fixed; inset:0; z-index:2; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding-left:var(--rail);
+    opacity:0; pointer-events:none; transition:opacity .9s ease; }
+  #title.active{ opacity:1; }
+  #title .t{ font-size:clamp(38px, 6vw, 76px); font-weight:500; text-align:center; line-height:1.1; }
+  #title .t em{ font-style:italic; color:var(--amber); }
+  #title .sub{ margin-top:3vh; font-style:italic; color:var(--ink-dim); text-align:center;
+    font-size:clamp(14px,1.5vw,18px); max-width:560px; line-height:1.6; }
+  #titleStars{ position:fixed; inset:0; z-index:-1; opacity:.5; }
+
+  /* ── ACT I stage ── */
+  #act1{ position:fixed; top:0; bottom:0; left:var(--rail); right:0; z-index:2;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .8s ease, left .55s ease; }
+  #act1.on{ opacity:1; }
+
+  /* the phone (T1–T5) */
+  #phoneWrap{ position:relative; width:min(640px, 84%); transition:opacity .7s ease; }
+  #phoneWrap.gone{ opacity:0; }
+  #arcsvg1{ position:absolute; inset:0; width:100%; height:100%;
+    overflow:visible; pointer-events:none; z-index:6; }
+  #field{ display:flex; align-items:flex-start; gap:12px;
+    background:#12111d; border:1px solid rgba(234,228,211,.13);
+    border-radius:24px; padding:14px 18px;
+    box-shadow:0 18px 50px rgba(0,0,0,.45); }
+  #plus{ flex:0 0 auto; width:30px; height:30px; border-radius:50%; margin-top:2px;
+    border:1px solid rgba(234,228,211,.2); color:var(--ink-dim);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--sans); font-size:18px; }
+  #send{ flex:0 0 auto; width:30px; height:30px; border-radius:50%; margin-top:2px;
+    background:rgba(234,228,211,.08); color:var(--ink-dim);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--sans); font-size:15px; }
+  #fieldtxt{ flex:1; font-family:var(--sans); font-size:clamp(14px,1.35vw,17.5px);
+    line-height:1.85; color:var(--ink); min-height:1.85em; padding-top:2px; }
+  .tk{ display:none; opacity:0; transition:color .35s ease, text-shadow .35s ease; }
+  .tk.on{ display:inline; opacity:.92; }
+  .tk.win{ color:var(--amber); text-shadow:0 0 14px rgba(217,160,91,.5); opacity:1; }
+  .tk.forgot{ opacity:.09; }
+  .caret{ display:inline-block; width:2px; height:1.05em; background:var(--amber);
+    vertical-align:text-bottom; animation:blink 1.05s steps(1) infinite; }
+  @keyframes blink{ 50%{opacity:0} }
+  .slot{ display:none; padding:0 .6em; margin-left:.2em;
+    border-bottom:1.5px dashed rgba(217,160,91,.65); color:rgba(217,160,91,.6);
+    font-size:.68em; letter-spacing:.16em; text-transform:uppercase; white-space:nowrap; }
+  .slot.on{ display:inline-block; animation:slotpulse 2.2s ease infinite; }
+  @keyframes slotpulse{ 0%,100%{opacity:.55} 50%{opacity:1} }
+  #sugg{ display:flex; margin-top:10px; border-radius:14px; overflow:hidden;
+    background:rgba(234,228,211,.045); border:1px solid rgba(234,228,211,.08);
+    opacity:0; transition:opacity .5s ease; }
+  #sugg.on{ opacity:1; }
+  .sug{ flex:1; text-align:center; padding:10px 6px; font-family:var(--sans);
+    font-size:14px; color:var(--ink-dim); transition:all .16s ease;
+    border-right:1px solid rgba(234,228,211,.1); white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .sug:last-child{ border-right:none; }
+  .sug.pick{ background:rgba(217,160,91,.14); color:var(--amber);
+    text-shadow:0 0 12px rgba(217,160,91,.4); }
+  #keys{ margin-top:10px; opacity:.5; }
+  .krow{ display:flex; justify-content:center; gap:6px; margin-bottom:6px; }
+  .key{ flex:0 0 auto; min-width:8.2%; padding:9px 0; text-align:center;
+    background:rgba(234,228,211,.06); border:1px solid rgba(234,228,211,.07);
+    border-radius:7px; font-family:var(--sans); font-size:12.5px; color:rgba(234,228,211,.5); }
+  .key.wide{ min-width:13%; } .key.space{ flex:1 1 auto; max-width:52%; }
+
+  /* the real conversation (T6–T9) */
+  #convo{ position:absolute; width:min(640px, 84%);
+    opacity:0; pointer-events:none; transition:opacity .8s ease; }
+  #convo.on{ opacity:1; }
+  #arcsvg2{ position:absolute; inset:0; width:100%; height:100%;
+    overflow:visible; pointer-events:none; z-index:6; }
+  .cbub{ position:relative; z-index:1; max-width:86%; margin-bottom:16px;
+    background:#12111d; border:1px solid rgba(234,228,211,.13);
+    border-radius:20px; padding:14px 20px;
+    font-family:var(--sans); font-size:clamp(14px,1.3vw,17px); line-height:1.95;
+    box-shadow:0 14px 40px rgba(0,0,0,.4); }
+  .cbub.user{ margin-left:auto; border-bottom-right-radius:6px;
+    border-color:rgba(217,160,91,.3); }
+  .cbub.model{ margin-right:auto; border-bottom-left-radius:6px;
+    border-color:rgba(127,155,179,.3); }
+  .cbub .who{ display:block; font-size:10px; letter-spacing:.3em; text-transform:uppercase;
+    color:var(--ink-dim); margin-bottom:6px; }
+  .cw{ display:none; opacity:0; transition:color .3s, text-shadow .3s; }
+  .cw.on{ display:inline; opacity:.92; }
+  .t2c{ display:inline-block; width:2px; height:1em; vertical-align:text-bottom; }
+  .cw.hot{ color:var(--amber); text-shadow:0 0 13px rgba(217,160,91,.55); opacity:1; }
+
+  /* conversation over the galaxy (T16–T19) */
+  #talk2{ position:fixed; top:5.5vh; left:var(--rail); right:0; z-index:12;
+    display:flex; flex-direction:column; align-items:center; gap:0;
+    opacity:0; transition:opacity .8s ease, left .55s; pointer-events:none; }
+  #talk2.show{ opacity:1; }
+  #talk2.low{ top:auto; bottom:10vh; }
+  #t2col{ position:relative; width:min(580px, 70%); }
+  #arcsvg3{ position:absolute; inset:0; width:100%; height:100%;
+    overflow:visible; pointer-events:none; z-index:6; }
+  #t2col .cbub{ font-size:clamp(12.5px,1.1vw,15px); line-height:1.8;
+    padding:11px 16px; margin-bottom:11px;
+    background:#14131f; }
+  #t2col .cbub.old{ opacity:.78; }
+  #t2col .cbub b{ font-weight:500; }
+  .fin-b{ color:var(--amber) !important; text-shadow:0 0 12px rgba(217,160,91,.5); }
+  .riv-b{ color:var(--slate) !important; text-shadow:0 0 12px rgba(127,155,179,.5); }
+
+  /* ── caption rail ── */
+  #rail{ position:fixed; left:0; top:0; bottom:0; width:var(--rail); z-index:10;
+    background:var(--railbg); border-right:1px solid rgba(234,228,211,.09);
+    transition:width .55s ease, opacity .45s ease; overflow:hidden; }
+  body.clean #rail{ opacity:0; }
+  .card{ position:fixed; left:0; top:0; bottom:0; width:clamp(290px, 28vw, 390px); z-index:11;
+    display:flex; flex-direction:column; justify-content:center;
+    padding:5vh 34px 9vh; pointer-events:none; opacity:0; transition:opacity .5s ease; }
+  .card.active{ opacity:1; }
+  body.clean .card{ opacity:0 !important; }
+  .eyebrow{ font-family:var(--sans); font-size:10.5px; letter-spacing:.4em; text-transform:uppercase;
+    color:var(--amber); opacity:.9; margin-bottom:20px; }
+  .cap{ font-size:clamp(13px, 1.02vw, 15.5px); line-height:1.68; color:var(--ink); }
+  .cap::before{ content:""; display:block; width:46px; height:1px; margin-bottom:16px;
+    background:linear-gradient(90deg, var(--amber), transparent); }
+  .cap p{ margin-bottom:.9em; }
+  .cap b{ color:var(--amber); font-weight:500; }
+  .cap i.sl{ color:var(--slate); font-style:normal; }
+  .cap .plain{ color:var(--ink-dim); font-size:.86em; display:block; margin-top:.7em; font-style:italic; }
+
+  /* ── chrome ── */
+  .ui{ transition:opacity .45s ease; }
+  body.clean .ui{ opacity:0 !important; pointer-events:none !important; }
+  #dots{ position:fixed; bottom:2.1vh; left:calc(var(--rail) + (100vw - var(--rail))/2);
+    transform:translateX(-50%); display:flex; gap:5px; z-index:40; transition:left .55s; }
+  #dots button{ width:5px; height:5px; border-radius:50%; border:none; cursor:pointer;
+    background:rgba(234,228,211,.18); padding:0; }
+  #dots button.on{ background:var(--amber); box-shadow:0 0 8px rgba(217,160,91,.7); }
+  #dots button:focus-visible{ outline:1px solid var(--amber); outline-offset:3px; }
+  #hint{ position:fixed; bottom:2vh; right:2vw; z-index:40; font-family:var(--sans);
+    font-size:10px; letter-spacing:.14em; color:var(--ink-dim); text-transform:uppercase; }
+  #tnum{ position:fixed; bottom:2vh; right:2vw; transform:translateY(-2.4em); z-index:40;
+    font-family:var(--sans); font-size:11px; letter-spacing:.22em; color:var(--amber); }
+  #capbtn{ position:fixed; bottom:1.6vh; left:1.4vw; z-index:60; font-family:var(--sans);
+    font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-dim);
+    background:rgba(10,9,19,.6); border:1px solid rgba(234,228,211,.18); border-radius:99px;
+    padding:7px 13px; cursor:pointer; transition:opacity .4s, color .3s, border-color .3s; }
+  #capbtn:hover{ color:var(--ink); border-color:rgba(234,228,211,.4); }
+  body.clean #capbtn{ opacity:.12; } body.clean #capbtn:hover{ opacity:1; }
+  #capbtn:focus-visible{ outline:1px solid var(--amber); outline-offset:2px; }
+  .navzone{ position:fixed; top:0; bottom:8vh; width:7vw; z-index:30; border:none;
+    background:none; cursor:pointer; color:transparent; font-size:30px; font-family:var(--serif); }
+  .navzone:hover{ color:rgba(234,228,211,.3); }
+  #zprev{ left:var(--rail); transition:left .55s; } #znext{ right:0; }
+
+  @media (max-width:760px){
+    :root{ --rail: clamp(220px, 38vw, 290px); }
+    .card{ width:clamp(220px, 38vw, 290px); padding:4vh 20px 8vh; }
+    .cap{ font-size:11.5px; line-height:1.58; }
+  }
+</style>
+</head>
+<body>
+
+<div id="webgl" aria-label="The word map from Video One. Drag to rotate."></div>
+<canvas id="titleStars"></canvas>
+
+<div id="title" class="active">
+  <h1 class="t">The Second<br><em>Ingredient</em></h1>
+  <p class="sub">Context: how the map learns to move.</p>
+</div>
+
+<!-- ── ACT I ── -->
+<div id="act1">
+  <div id="phoneWrap">
+    <svg id="arcsvg1"></svg>
+    <div id="field">
+      <div id="plus">+</div>
+      <div id="fieldtxt"><span id="sent"></span><span class="caret" id="caret"></span><span class="slot" id="slot">next word</span></div>
+      <div id="send">↑</div>
+    </div>
+    <div id="sugg"><span class="sug" id="s0"></span><span class="sug" id="s1"></span><span class="sug" id="s2"></span></div>
+    <div id="keys"></div>
+  </div>
+  <div id="convo">
+    <svg id="arcsvg2"></svg>
+    <div class="cbub user"><span class="who">You</span><span id="cu"></span></div>
+    <div class="cbub model"><span class="who">Model</span><span id="cm"></span><span class="caret" id="ccaret"></span><span class="slot" id="cslot">next word</span></div>
+  </div>
+</div>
+
+<div id="talk2"><div id="t2col"><svg id="arcsvg3"></svg><div id="t2bubs"></div></div></div>
+
+<!-- ═══════════ CAPTION CARDS · T0–T20 ═══════════ -->
+<div id="cards">
+  <div class="card"><div class="eyebrow">T0 · Title</div>
+    <div class="cap"><p><b>→</b> and <b>←</b> step through numbered transitions, one per phrase.</p>
+    <p><b>C</b> collapses this panel. <b>R</b> replays the current transition.</p>
+    <p>Drag the map, once it returns.</p></div></div>
+
+  <div class="card"><div class="eyebrow">T1 · The last word or two</div>
+    <div class="cap"><p>"So with autocomplete, keeping track of <em>context</em> just means noticing the last word or two that you typed into your text. Pretty simple."</p></div></div>
+
+  <div class="card"><div class="eyebrow">T2 · The autocomplete run</div>
+    <div class="cap"><p>"If you take out your phone and start a message by just automatically selecting the next word it suggests, you'll get a sentence like this."</p>
+    <span class="plain">The composer types itself, slowly — and keeps going under the next two beats. R restarts it.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T3 · Neighbor by neighbor</div>
+    <div class="cap"><p>"Each word makes sense when you put it next to its neighbor — but the whole sentence is just <b>nonsense</b>."</p>
+    <span class="plain">The two-word window lights up and rides the leading edge as it types.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T4 · A very short memory</div>
+    <div class="cap"><p>"And that's because the only context for autocomplete is the <b>last word or two</b> that you've typed in."</p>
+    <span class="plain">The arcs emerge mid-animation — pointing at the suggestion being selected, hopping forward with each word.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T5 · Blathering</div>
+    <div class="cap"><p>"Autocomplete doesn't know it's blathering on, because it <em>can't remember how you started the sentence</em>."</p>
+    <span class="plain">The sentence sprints home. The suggestions vanish, <b>next word</b> appears, the arcs jump to it — and everything outside the window forgets.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T6 · More than the last word</div>
+    <div class="cap"><p>"For LLMs, context is a whole lot more than just paying attention to the last word."</p>
+    <span class="plain">Autocomplete's phone dissolves. A conversation that actually makes sense takes its place.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T7 · Self-attention</div>
+    <div class="cap"><p>"Large language models have an ability called <b>self-attention</b> that lets them pay attention to <em>every single word</em> in a conversation — every word that you've said, and every word the model has said."</p>
+    <span class="plain">The reply types — arcs from your words and its own — and stops at "…and your grandmother would".</span></div></div>
+
+  <div class="card"><div class="eyebrow">T8 · The next word</div>
+    <div class="cap"><p>It's in producing the <b>next word</b> — the most likely continuation of the sentence — that self-attention goes to work: weighing every word in the conversation, treating some as far more relevant than others, to decide what comes next.</p>
+    <span class="plain">Suggested narration — no transcript line lands here yet. The fan holds; the attended words take turns burning.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T9 · Approve</div>
+    <div class="cap"><p><b>next word</b> resolves into the actual continuation: <em>approve</em>.</p>
+    <span class="plain">Staging beat — the payoff lands when you're ready.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T10 · The map returns</div>
+    <div class="cap"><p>"And it uses that conversation to continuously <em>update the map</em> that it got from its training."</p>
+    <span class="plain">The galaxy from Video One, back from black.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T11 · The word bank</div>
+    <div class="cap"><p>"So take, for example, the word <b>bank</b>."</p></div></div>
+
+  <div class="card"><div class="eyebrow">T12 · Loan and interest</div>
+    <div class="cap"><p>"In its training data, that word is connected both to financial institutions and to riversides. It shows up next to <b>loan</b> and <b>interest</b> —"</p></div></div>
+
+  <div class="card"><div class="eyebrow">T13 · River and mud</div>
+    <div class="cap"><p>"— but also next to <i class="sl">river</i> and <i class="sl">mud</i> —"</p></div></div>
+
+  <div class="card"><div class="eyebrow">T14 · Two clusters of meaning</div>
+    <div class="cap"><p>"— stuck there <em>between two clusters of meaning</em>."</p></div></div>
+
+  <div class="card"><div class="eyebrow">T15 · The ambiguity</div>
+    <div class="cap"><p>"Autocomplete has no way to resolve that ambiguity. But the attention mechanism does."</p>
+    <span class="plain">bank wavers between its two pulls.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T16 · Wall Street</div>
+    <div class="cap"><p>"As the conversation develops, the location of the word bank in the map <em>moves</em>. If you start talking about <b>Wall Street</b>, it moves in one direction."</p></div></div>
+
+  <div class="card"><div class="eyebrow">T17 · Hiking — then hold</div>
+    <div class="cap"><p>"If you start talking about <i class="sl">hiking</i>, it drifts in the other."</p>
+    <p>"Every single word in the conversation is reweighting the significance of every other single word in the conversation — <em>constantly</em>, every time the model produces the next word."</p>
+    <span class="plain">Hold here through both lines — nothing new happens on screen. Let them listen.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T18 · bank, against the sky</div>
+    <div class="cap"><p>And there's <b>bank</b> — still out there, still being pushed back and forth, one token at a time.</p>
+    <span class="plain">Suggested narration. Zoom out: the whole galaxy returns, still — and one star is stepping. Let it swing twice.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T19 · It globalizes</div>
+    <div class="cap"><p>And what you just watched happen to one word is happening to <em>every word in the map, all at once</em> — the whole geometry updates with every single token of the conversation.</p>
+    <p>"And that's why, unlike autocomplete, large language models can produce sentences that <em>don't dissolve into nonsense</em>."</p>
+    <p>"The model is constantly navigating <em>a geometry of word meanings that the conversation itself continually reshapes</em>."</p>
+    <span class="plain">First line is suggested narration. Press as you say "every word, all at once" — the entire sky starts stepping at that instant, edge to edge, and the web of weights surfaces with it, every line stretching and turning. All three lines play over the same living sky.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T20 · The web alone</div>
+    <div class="cap"><p>Two ingredients, one machine: a map of meaning built from everything we've ever written — and a mechanism that lets the words of a conversation move it.</p>
+    <p>When the lights go out, what lingers is the part that was never really about the words at all: <em>the relationships</em> — still updating, token by token.</p>
+    <span class="plain">Suggested narration. The stars fade; the tangled web of inferential relations remains, still stepping. It holds until you press on.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T21 · Black</div>
+    <div class="cap"><span class="plain">The waves release, one by one. Done.</span></div></div>
+</div>
+
+<nav id="dots" class="ui" aria-label="transitions"></nav>
+<div id="tnum" class="ui">T0</div>
+<div id="hint" class="ui">→ next · ← back · C panel · R replay</div>
+<button id="capbtn" aria-label="toggle caption panel">Aa · panel</button>
+<button class="navzone ui" id="zprev" aria-label="previous">‹</button>
+<button class="navzone ui" id="znext" aria-label="next">›</button>
+
+<script>
+"use strict";
+/* ════════════════ UTILITIES ════════════════ */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0;
+  let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t;
+  return ((t^t>>>14)>>>0)/4294967296; }; }
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function railWTarget(){ return document.body.classList.contains("clean") ? 0
+  : Math.min(Math.max(290, innerWidth*0.28), 390); }
+let timers=[];
+function clearTimers(){ timers.forEach(clearTimeout); timers=[]; }
+function after(ms,fn){ timers.push(setTimeout(fn, reduceMotion?Math.min(ms,150):ms)); }
+function strip(w){ return w.toLowerCase().replace(/[^a-z']/g,""); }
+function ease3(e){ return 1-Math.pow(1-e,3); }
+
+/* ════════════════ TRANSITION MANAGER · T0–T20 ════════════════ */
+const NT=22;
+const cards=[...document.querySelectorAll(".card")];
+let cur=0;
+const dots=document.getElementById("dots");
+for(let i=0;i<NT;i++){ const b=document.createElement("button");
+  b.addEventListener("click",()=>goTo(i)); b.setAttribute("aria-label","T"+i);
+  dots.appendChild(b); }
+function paintChrome(){
+  [...dots.children].forEach((d,i)=>d.classList.toggle("on",i===cur));
+  cards.forEach((c,i)=>c.classList.toggle("active", i===cur));
+  document.getElementById("tnum").textContent="T"+cur;
+  document.getElementById("title").classList.toggle("active", cur===0);
+  document.getElementById("act1").classList.toggle("on", cur>=1 && cur<=9);
+  document.getElementById("webgl").classList.toggle("on", cur>=10);
+}
+function goTo(i){
+  if(i<0||i>=NT||i===cur) return;
+  const fwd=(i===cur+1);
+  clearTimers();
+  cur=i;
+  applyState(cur, fwd);
+  paintChrome();
+}
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight"||e.key===" "){ e.preventDefault(); goTo(cur+1); }
+  else if(e.key==="ArrowLeft"){ e.preventDefault(); goTo(cur-1); }
+  else if(e.key==="c"||e.key==="C"){ toggleRail(); }
+  else if(e.key==="r"||e.key==="R"){ clearTimers(); applyState(cur,true); }
+});
+document.getElementById("znext").addEventListener("click",()=>goTo(cur+1));
+document.getElementById("zprev").addEventListener("click",()=>goTo(cur-1));
+function toggleRail(){
+  document.body.classList.toggle("clean");
+  document.getElementById("capbtn").textContent =
+    document.body.classList.contains("clean") ? "Aa · hidden" : "Aa · panel";
+}
+document.getElementById("capbtn").addEventListener("click",toggleRail);
+
+/* ════════════════ TITLE STARS ════════════════ */
+(function(){
+  const c=document.getElementById("titleStars"), x=c.getContext("2d");
+  function draw(){ c.width=innerWidth; c.height=innerHeight; x.clearRect(0,0,c.width,c.height);
+    const r=mulberry32(11);
+    for(let i=0;i<160;i++){ x.fillStyle=`rgba(234,228,211,${r()*0.5+0.06})`;
+      x.beginPath(); x.arc(r()*c.width, r()*c.height, r()*1.1+0.2, 0, 7); x.fill(); } }
+  draw(); addEventListener("resize",draw);
+})();
+
+/* ════════════════ shared arc fan ════════════════ */
+function drawFan(svg, hostRect, items, slotRect, opts={}){
+  svg.innerHTML="";
+  const sx=slotRect.left-hostRect.left+slotRect.width/2,
+        sy=slotRect.top-hostRect.top;
+  for(const it of items){
+    const tx=it.rect.left-hostRect.left+it.rect.width/2,
+          ty=it.rect.top-hostRect.top;
+    const lift=(opts.liftBase||26)+Math.abs(sx-tx)*0.13+Math.abs(sy-ty)*0.2;
+    const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("d",`M ${tx} ${ty} Q ${(tx+sx)/2} ${Math.min(ty,sy)-lift} ${sx} ${sy}`);
+    p.setAttribute("fill","none");
+    p.setAttribute("stroke",`rgba(217,160,91,${(it.hot?0.85:0.1+it.w*0.5).toFixed(2)})`);
+    p.setAttribute("stroke-width",(it.hot?1.9:0.5+it.w*1.2).toFixed(1));
+    svg.appendChild(p);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   ACT I · PART ONE — THE PHONE (T1–T5)
+   Arcs point at the live middle suggestion; when the sentence
+   ends, the suggestions vanish and "next word" inherits the arcs.
+   ════════════════════════════════════════════════════════════ */
+const SENT=("I think the best way to get a good deal is to buy the house in a couple weeks "+
+ "or two and then you have a good idea about the cost and how long you can stay there for "+
+ "the next couple months or two years to see how long it takes you and then the house is worth the").split(" ");
+const DECOYS=["maybe","really","time","just","very","nice","going","what","more","other",
+  "first","right","still","never","always","week","day","thing","people","back"];
+const sentEl=document.getElementById("sent"), suggEl=document.getElementById("sugg"),
+      slotEl=document.getElementById("slot"), caretEl=document.getElementById("caret"),
+      arcsvg1=document.getElementById("arcsvg1"), phoneWrap=document.getElementById("phoneWrap"),
+      sugCells=[document.getElementById("s0"),document.getElementById("s1"),document.getElementById("s2")];
+(function buildKeys(){
+  const rows=["qwertyuiop","asdfghjkl","zxcvbnm"];
+  const k=document.getElementById("keys");
+  k.innerHTML = rows.map((r,i)=>`<div class="krow">${
+    (i===2?'<span class="key wide">⇧</span>':'')+
+    r.split("").map(c=>`<span class="key">${c}</span>`).join("")+
+    (i===2?'<span class="key wide">⌫</span>':'')
+  }</div>`).join("") +
+  `<div class="krow"><span class="key wide">123</span><span class="key space"> </span><span class="key wide">⏎</span></div>`;
+})();
+let tks=[], a1rand=mulberry32(7);
+let bIdx=0, bRate=430, bWin=false, bArcs=false, bDone=false, bForgot=false;
+function buildSpans(){
+  if(tks.length) return;
+  sentEl.innerHTML="";
+  tks=SENT.map(w=>{ const s=document.createElement("span");
+    s.className="tk"; s.textContent=w+" "; sentEl.appendChild(s); return s; });
+}
+function setSugg(next){
+  const d1=DECOYS[Math.floor(a1rand()*DECOYS.length)],
+        d2=DECOYS[Math.floor(a1rand()*DECOYS.length)];
+  sugCells[0].textContent='"'+d1+'"'; sugCells[1].textContent=next||""; sugCells[2].textContent=d2;
+  sugCells.forEach(c=>c.classList.remove("pick"));
+}
+function edgeMarks(){
+  tks.forEach((s,i)=>s.classList.toggle("win", bWin && (i===bIdx-1||i===bIdx-2) && i>=0));
+  if(bForgot) tks.forEach((s,i)=>s.classList.toggle("forgot", i<bIdx-2));
+  else tks.forEach(s=>s.classList.remove("forgot"));
+}
+function edgeArcs(){
+  if(!bArcs || bIdx<1){ arcsvg1.innerHTML=""; return; }
+  const hr=phoneWrap.getBoundingClientRect();
+  /* while the run is live, arcs point at the selected suggestion;
+     once the sentence ends, they jump to "next word" */
+  const target = bDone ? slotEl : sugCells[1];
+  const sr=target.getBoundingClientRect();
+  const items=[];
+  for(const i of [bIdx-2,bIdx-1]) if(i>=0)
+    items.push({rect:tks[i].getBoundingClientRect(), w:0.85, hot:true});
+  drawFan(arcsvg1, hr, items, sr, {liftBase:20});
+}
+function finishRun(){
+  bDone=true;
+  setSugg(null); suggEl.classList.remove("on");
+  if(cur>=4) slotEl.classList.add("on");
+  if(cur===5 && !bForgot){ bForgot=true; }
+  after(60,()=>{ edgeMarks(); edgeArcs(); });
+}
+function pumpField(){
+  if(cur<2||cur>5) return;
+  if(bIdx>=SENT.length){ finishRun(); return; }
+  suggEl.classList.add("on");
+  setSugg(SENT[bIdx]);
+  after(Math.min(150,bRate*0.35),()=>sugCells[1].classList.add("pick"));
+  after(bRate*0.62,()=>{
+    tks[bIdx].classList.add("on");
+    bIdx++;
+    edgeMarks(); edgeArcs();
+  });
+  timers.push(setTimeout(pumpField, bRate));
+}
+function fieldState(t, fwd){
+  buildSpans();
+  document.getElementById("convo").classList.remove("on");
+  phoneWrap.classList.remove("gone");
+  caretEl.style.display="inline-block";
+  bWin = t>=3; bArcs = t>=4;
+  if(t===1){ bIdx=0; bDone=false; bForgot=false;
+    tks.forEach(s=>{s.className="tk";}); arcsvg1.innerHTML="";
+    suggEl.classList.remove("on"); setSugg(null); slotEl.classList.remove("on"); return; }
+  if(reduceMotion || !fwd){
+    bIdx=SENT.length; bDone=true; bForgot=(t===5);
+    tks.forEach(s=>s.classList.add("on"));
+    suggEl.classList.remove("on");
+    slotEl.classList.toggle("on", t>=4);
+    edgeMarks(); edgeArcs();
+    if(t<4) arcsvg1.innerHTML="";
+    return;
+  }
+  if(t===2){ bIdx=0; bDone=false; bForgot=false; bRate=430;
+    tks.forEach(s=>{s.className="tk";}); arcsvg1.innerHTML="";
+    slotEl.classList.remove("on"); }
+  bRate = t===5 ? 70 : 430;
+  if(bDone){ slotEl.classList.toggle("on", t>=4);
+    if(t===5) bForgot=true;
+    edgeMarks(); edgeArcs(); return; }
+  slotEl.classList.remove("on");
+  edgeMarks(); edgeArcs();
+  pumpField();
+}
+addEventListener("resize",()=>{
+  if(cur>=4&&cur<=5) edgeArcs();
+  else if(cur===7&&cmIdx>0) convoFan(Math.min(cmIdx,CM_STOP-1), ccaret, true);
+  else if(cur===8) pauseFan(0);
+  else if(cur===9) approveFan();
+});
+
+/* ════════════════════════════════════════════════════════════
+   ACT I · PART TWO — A CONVERSATION THAT MAKES SENSE (T6–T9)
+   T7 types to "…would" and stops. T8: "next word" appears and
+   the fan holds, attended words taking turns. T9: approve.
+   ════════════════════════════════════════════════════════════ */
+const CU_TEXT="I'm making my grandmother's stuffing, but I can't find chestnuts anywhere.".split(" ");
+const CM_TEXT="Try roasted hazelnuts — they'll give the stuffing the same sweetness, and your grandmother would approve.".split(" ");
+const CM_STOP=15;   /* types up to "would", stops before "approve." */
+const CM_AT=[ ["can't","find"], ["chestnuts"], ["chestnuts"], [], ["hazelnuts"], ["stuffing"],
+  [], ["stuffing","making"], [], ["chestnuts"], ["chestnuts","stuffing"], [],
+  ["my"], ["grandmother's"], [], ["grandmother's","making"] ];
+const PAUSE_SETS=[ ["grandmother's"], ["making","stuffing"], ["chestnuts","hazelnuts"], ["my","grandmother's"] ];
+const cuEl=document.getElementById("cu"), cmEl=document.getElementById("cm"),
+      cslot=document.getElementById("cslot"), ccaret=document.getElementById("ccaret"),
+      convoEl=document.getElementById("convo"), arcsvg2=document.getElementById("arcsvg2");
+let cuTks=[], cmTks=[], cmIdx=0;
+function buildConvo(){
+  if(cuTks.length) return;
+  cuEl.innerHTML=""; cmEl.innerHTML="";
+  cuTks=CU_TEXT.map(w=>{ const s=document.createElement("span");
+    s.className="cw"; s.textContent=w+" "; cuEl.appendChild(s); return s; });
+  cmTks=CM_TEXT.map(w=>{ const s=document.createElement("span");
+    s.className="cw"; s.textContent=w+" "; cmEl.appendChild(s); return s; });
+}
+function clearHot(){ cuTks.forEach(s=>s.classList.remove("hot"));
+  cmTks.forEach(s=>s.classList.remove("hot")); }
+function convoItems(uptoModelIdx, hot){
+  const items=[];
+  cuTks.forEach(s=>{ const h=hot.has(strip(s.textContent));
+    s.classList.toggle("hot",h);
+    items.push({rect:s.getBoundingClientRect(),
+      w:0.16+mulberry32(strip(s.textContent).length*13)()*0.2, hot:h}); });
+  cmTks.forEach((s,i)=>{ if(i>=uptoModelIdx) return;
+    const h=hot.has(strip(s.textContent));
+    s.classList.toggle("hot",h);
+    items.push({rect:s.getBoundingClientRect(), w:0.15, hot:h}); });
+  return items;
+}
+function convoFan(step, targetEl, statiq){
+  const hr=convoEl.getBoundingClientRect();
+  const target=targetEl || cmTks[step];
+  const hot=new Set((CM_AT[step]||[]).map(strip));
+  drawFan(arcsvg2, hr, convoItems(step, hot), target.getBoundingClientRect(), {liftBase:22});
+  if(!statiq) after(640,clearHot);
+}
+function pauseFan(i){
+  const hr=convoEl.getBoundingClientRect();
+  const hot=new Set(PAUSE_SETS[i%PAUSE_SETS.length].map(strip));
+  drawFan(arcsvg2, hr, convoItems(CM_STOP, hot), cslot.getBoundingClientRect(), {liftBase:22});
+}
+function approveFan(){
+  const hr=convoEl.getBoundingClientRect();
+  const hot=new Set(CM_AT[15].map(strip));
+  drawFan(arcsvg2, hr, convoItems(15, hot), cmTks[15].getBoundingClientRect(), {liftBase:22});
+}
+function pumpConvo(){
+  if(cur!==7) return;
+  if(cmIdx>=CM_STOP){ return; }
+  convoFan(cmIdx, ccaret, false);
+  const n=cmIdx;
+  after(380,()=>{ cmTks[n].classList.add("on"); });
+  cmIdx++;
+  timers.push(setTimeout(pumpConvo, 760));
+}
+let pauseIdx=0;
+function pumpPause(){
+  if(cur!==8) return;
+  pauseFan(pauseIdx); pauseIdx++;
+  timers.push(setTimeout(pumpPause, 2100));
+}
+function convoState(t, fwd){
+  buildConvo();
+  phoneWrap.classList.add("gone");
+  convoEl.classList.add("on");
+  cuTks.forEach(s=>s.classList.add("on"));
+  clearHot();
+  if(t===6){ cmTks.forEach(s=>{s.classList.remove("on","hot");}); cmIdx=0;
+    arcsvg2.innerHTML=""; ccaret.style.display="inline-block";
+    cslot.classList.remove("on"); return; }
+  if(t===7){
+    cslot.classList.remove("on");
+    cmTks[15].classList.remove("on");
+    ccaret.style.display="inline-block";
+    if(fwd && !reduceMotion && cmIdx<CM_STOP){ pumpConvo(); }
+    else { for(let i=0;i<CM_STOP;i++) cmTks[i].classList.add("on");
+      cmIdx=CM_STOP; convoFan(CM_STOP-1, ccaret, true); }
+    return;
+  }
+  /* T8 and T9 require the typed portion complete */
+  for(let i=0;i<CM_STOP;i++) cmTks[i].classList.add("on");
+  cmIdx=CM_STOP;
+  if(t===8){
+    cmTks[15].classList.remove("on");
+    cslot.classList.add("on"); ccaret.style.display="none";
+    pauseIdx=0;
+    if(!reduceMotion) pumpPause(); else pauseFan(0);
+    return;
+  }
+  /* t===9 · approve — the slot resolves in place */
+  ccaret.style.display="none";
+  if(fwd && !reduceMotion){
+    cslot.classList.add("on");
+    pauseFan(0);
+    after(520,()=>{ cslot.classList.remove("on");
+      cmTks[15].classList.add("on","hot"); approveFan(); });
+    after(2600,()=>{ clearHot(); arcsvg2.innerHTML=""; });
+  } else {
+    cslot.classList.remove("on");
+    cmTks[15].classList.add("on");
+    arcsvg2.innerHTML="";
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   ACT II · THE MAP RETURNS (T10–T20)
+   Same seeds, same palette as Video One.
+   ════════════════════════════════════════════════════════════ */
+const VG=[-3,-15,3], VGEN=[-4,9,7], VC=[-6,6,-5];
+function add3(a,b){ return [a[0]+b[0],a[1]+b[1],a[2]+b[2]]; }
+const Pking=[-30,9,-4], Pman=[18,-12,4], Pparis=[-4,25,-14], Pbro=[26,-21,12], Phis=[0,-20,-2];
+const POS={
+  king:Pking, queen:add3(Pking,VG), prince:add3(Pking,VGEN), princess:add3(add3(Pking,VG),VGEN),
+  ruled:[-44,6,-2], kingdom:[-27,3,-13], castle:[-38,-1,-9],
+  man:Pman, woman:add3(Pman,VG), son:add3(Pman,VGEN), daughter:add3(add3(Pman,VG),VGEN),
+  brother:Pbro, sister:add3(Pbro,VG), his:Phis, her:add3(Phis,VG),
+  told:[30,-4,-3], story:[35,-10,7],
+  paris:Pparis, france:add3(Pparis,VC),
+  rome:add3(Pparis,[14,-6,-8]), italy:add3(add3(Pparis,[14,-6,-8]),VC),
+  tokyo:add3(Pparis,[19,9,5]),  japan:add3(add3(Pparis,[19,9,5]),VC),
+  london:add3(Pparis,[-15,-3,9]), england:add3(add3(Pparis,[-15,-3,9]),VC),
+  capital:[2,17,-20], train:[5,29,-3], road:[-40,-19,-4],
+  throne:[-35,4,9], crown:[-26,13,-14], court:[-41,12,8], palace:[-36,-9,11],
+  uncle:[22,-16,-9], aunt:[19,-25,-12], cousin:[28,-28,3], child:[12,-8,-8], family:[31,-15,16],
+  harbor:[9,23,6], border:[-9,19,-6], island:[16,28,-16], village:[-22,28,4], street:[1,31,9],
+  morning:[-12,-5,13], summer:[6,5,-15], evening:[-2,-12,16], stranger:[-18,-14,-11]
+};
+const CROWDISH=["throne","crown","court","palace","uncle","aunt","cousin","child","family",
+  "harbor","border","island","village","street","morning","summer","evening","stranger"];
+const FIN_WORDS={ loan:[52,-10,-10], interest:[63,-9,8], savings:[55,-24,-13],
+                  vault:[64,-23,11], money:[58,-18,-2] };
+const RIV_WORDS={ river:[52,11,-9], mud:[63,10,9], water:[55,23,-14],
+                  shore:[64,22,12], reeds:[58,17,0] };
+const BANK_HOME=new THREE.Vector3(58,1,0);
+const BANK_FIN=new THREE.Vector3(57,-12,0), BANK_RIV=new THREE.Vector3(57,13,0);
+const FIN_C=new THREE.Vector3(58.4,-16.8,-1.2), RIV_C=new THREE.Vector3(58.4,16.6,-0.4);
+Object.assign(POS, FIN_WORDS, RIV_WORDS);
+const ALL_WORDS=Object.keys(POS);
+const FINSET=Object.keys(FIN_WORDS), RIVSET=Object.keys(RIV_WORDS);
+const BANKISH=new Set([...FINSET,...RIVSET]);
+const MIDWORDS=("bread music doctor window seven blue run mountain letter winter horse market "+
+ "ocean glass fire garden clock ship stone rain gold dream door bird salt paper voice "+
+ "night wheel song iron cloud field lamp chair north sugar wire key "+
+ "tide rope spark silver oak bell pine wool moth dew").split(" ");
+
+const glHost=document.getElementById("webgl");
+let renderer, scene, camera, rig, galaxy, bgB, bgC, threeReady=false;
+const fg={}, anonStars=[], waveStars=[], midSprites=[], farClusters=[], bankThreads=[], cloudSteps=[];
+let finGlow=null, rivGlow=null, bankSp=null;
+const fades=[], pops=[], flares=[];
+let webBuilt=false, webBatches=[], webChunks=[], webMode="off"; /* off|steady|echo */
+const FOV=55;
+let camZ=150, camZT=150;
+let rotY=0, rotX=0, rotZ=0, rotVelY=0, rotVelX=0;
+let spin=0, mom=1, momT=1, wanderT0=0, skyAlive=false;
+let homing=false, homeY=0, homeX=0;
+let bankMode="home";   /* home|wobble|fin|riv|convo */
+/* warp: time-boxed tweens — motion ONLY inside the window */
+const warpFrom={}, warpTo={};
+let warpT0=-1; const WARP_DUR=650;
+const bankTw={a:new THREE.Vector3(), b:new THREE.Vector3(), t0:-1, dur:950};
+function fadeTo(mat,t,rate){ const f=fades.find(f=>f.mat===mat);
+  if(f){ f.t=t; f.rate=rate||0.06; } else fades.push({mat,t,rate:rate||0.06}); }
+function worldPerPx(z){ return (2*z*Math.tan(FOV*Math.PI/360))/innerHeight; }
+function rigOffTarget(){ return (railWTarget()/2)*worldPerPx(110); }
+
+function makeCanvasTex(draw,w,h){
+  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  draw(cv.getContext("2d"),w,h);
+  const t=new THREE.CanvasTexture(cv); t.minFilter=THREE.LinearFilter; return t;
+}
+function textSprite(text,{font="500 60px Palatino, Georgia, serif", color="#eae4d3", scale=4.4}={}){
+  const pad=24, meas=document.createElement("canvas").getContext("2d");
+  meas.font=font; const w=Math.ceil(meas.measureText(text).width)+pad*2;
+  const tex=makeCanvasTex((c2)=>{ c2.font=font; c2.fillStyle=color; c2.textBaseline="middle";
+    c2.shadowColor=color; c2.shadowBlur=14; c2.fillText(text,pad,48); }, w, 96);
+  const mat=new THREE.SpriteMaterial({map:tex, transparent:true, opacity:0, depthWrite:false});
+  const sp=new THREE.Sprite(mat);
+  sp.scale.set(w/96*scale, scale, 1);
+  sp.userData.bw=w/96*scale; sp.userData.bh=scale;
+  return sp;
+}
+/* true gaussian falloff, computed per-pixel — smooth at any magnification */
+const softDot=(function(){
+  let tex=null;
+  return function(){
+    if(tex) return tex;
+    const cv=document.createElement("canvas"); cv.width=128; cv.height=128;
+    const c=cv.getContext("2d");
+    const img=c.createImageData(128,128);
+    for(let y=0;y<128;y++) for(let x=0;x<128;x++){
+      const dx=(x-63.5)/63.5, dy=(y-63.5)/63.5;
+      const a=Math.exp(-4.6*(dx*dx+dy*dy));
+      const o=(y*128+x)*4;
+      img.data[o]=255; img.data[o+1]=255; img.data[o+2]=255;
+      img.data[o+3]=Math.round(255*Math.max(0,a-0.004));
+    }
+    c.putImageData(img,0,0);
+    tex=new THREE.CanvasTexture(cv); tex.minFilter=THREE.LinearFilter;
+    return tex;
+  };
+})();
+const glowTex=(function(){
+  let tex=null;
+  return function(){
+    if(tex) return tex;
+    const cv=document.createElement("canvas"); cv.width=256; cv.height=256;
+    const c=cv.getContext("2d");
+    const img=c.createImageData(256,256);
+    for(let y=0;y<256;y++) for(let x=0;x<256;x++){
+      const dx=(x-127.5)/127.5, dy=(y-127.5)/127.5;
+      const a=Math.exp(-3.4*(dx*dx+dy*dy))*0.85;
+      const o=(y*256+x)*4;
+      img.data[o]=255; img.data[o+1]=255; img.data[o+2]=255;
+      img.data[o+3]=Math.round(255*Math.max(0,a-0.003));
+    }
+    c.putImageData(img,0,0);
+    tex=new THREE.CanvasTexture(cv); tex.minFilter=THREE.LinearFilter;
+    return tex;
+  };
+})();
+function mkPointsCloud(seed,count){
+  const r=mulberry32(seed);
+  const pos=new Float32Array(count*3), col=new Float32Array(count*3);
+  const clumps=[];
+  for(let i=0;i<10;i++){
+    const th=r()*Math.PI*2, ph=Math.acos(2*r()-1), rad=28+r()*68;
+    clumps.push({c:[rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.7, rad*Math.cos(ph)], s:5.5+r()*8});
+  }
+  const gauss=()=> (r()+r()+r()+r()-2)/1.2;
+  const tc=new THREE.Color();
+  for(let i=0;i<count;i++){
+    let p;
+    if(r()<0.55){ const cl=clumps[i%clumps.length];
+      p=[cl.c[0]+gauss()*cl.s, cl.c[1]+gauss()*cl.s, cl.c[2]+gauss()*cl.s]; }
+    else { const th=r()*Math.PI*2, ph=Math.acos(2*r()-1), rad=20+Math.cbrt(r())*115;
+      p=[rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.8, rad*Math.cos(ph)]; }
+    pos.set(p,i*3);
+    if(r()<0.12) tc.setHSL(0.085,0.55,0.62+r()*0.25);
+    else         tc.setHSL(0.58+r()*0.08,0.25,0.62+r()*0.33);
+    col.set([tc.r,tc.g,tc.b],i*3);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  geo.setAttribute("color",new THREE.BufferAttribute(col,3));
+  return new THREE.Points(geo,new THREE.PointsMaterial({
+    map:softDot(), size:2.1, sizeAttenuation:true, vertexColors:true, transparent:true,
+    opacity:0, depthWrite:false, blending:THREE.AdditiveBlending }));
+}
+function registerCloud(points){
+  const attr=points.geometry.attributes.position;
+  cloudSteps.push({attr, base:attr.array.slice(0),
+    from:new Float32Array(attr.array.length),
+    to:new Float32Array(attr.array.length)});
+}
+function mkFarCluster(seed, center, rate){
+  const r=mulberry32(seed), n=200;
+  const pos=new Float32Array(n*3), s=7.5+r()*3.5;
+  const gauss=()=> (r()+r()+r()+r()-2)/1.2;
+  for(let i=0;i<n;i++) pos.set([gauss()*s, gauss()*s*0.7, gauss()*s], i*3);
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  const mat=new THREE.PointsMaterial({map:softDot(), color:0xb9c4d6, size:1.7,
+    sizeAttenuation:true, transparent:true, opacity:0, depthWrite:false,
+    blending:THREE.AdditiveBlending});
+  const pts=new THREE.Points(geo, mat);
+  const group=new THREE.Group(); group.add(pts); group.position.set(...center);
+  return {group, mat, rate};
+}
+
+function initThree(){
+  if(threeReady) return;
+  renderer=new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  renderer.setSize(innerWidth,innerHeight);
+  glHost.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(FOV, innerWidth/innerHeight, 0.1, 900);
+  camera.position.set(0,0,camZ);
+  rig=new THREE.Group(); scene.add(rig);
+  rig.position.x=rigOffTarget();
+  galaxy=new THREE.Group(); rig.add(galaxy);
+
+  bgB=mkPointsCloud(43,1900); bgC=mkPointsCloud(44,2100);
+  galaxy.add(bgB); galaxy.add(bgC);
+  registerCloud(bgB); registerCloud(bgC);
+  [[ 80, 50,-58, 0.0011],[ -88,-42, 42,-0.0013],[ 58, 60, 74, 0.0015],[ -70, 56,-70,-0.0009]]
+    .forEach((d,i)=>{ const fc=mkFarCluster(60+i,[d[0],d[1],d[2]],d[3]);
+      galaxy.add(fc.group); farClusters.push(fc);
+      registerCloud(fc.group.children[0]); });
+
+  const dotTex=softDot();
+  function mkStar(colorHex,scale){
+    const m=new THREE.SpriteMaterial({map:dotTex, color:colorHex, transparent:true,
+      opacity:0, depthWrite:false, blending:THREE.AdditiveBlending});
+    const s=new THREE.Sprite(m); s.scale.set(scale,scale,1); return s;
+  }
+  for(const w of ALL_WORDS){
+    const crowd=CROWDISH.includes(w), bankish=BANKISH.has(w);
+    const star=mkStar(0xfff3da, crowd?2.0:2.4);
+    const label=textSprite(w, crowd?{scale:3.6, color:"#cfc9b6"}
+      : bankish ? {scale:4.0, color: FINSET.includes(w)?"#e3cda4":"#bccbd8"} : {});
+    const target=new THREE.Vector3(...POS[w]);
+    galaxy.add(star); galaxy.add(label);
+    fg[w]={star,label,target,on:false, dimf: crowd?0.72:1};
+    warpFrom[w]=new THREE.Vector3(); warpTo[w]=new THREE.Vector3();
+  }
+  bankSp=textSprite("bank",{scale:5.4});
+  bankSp.position.copy(BANK_HOME);
+  galaxy.add(bankSp);
+  const bankStar=mkStar(0xfff3da,3.0); bankStar.position.copy(BANK_HOME);
+  galaxy.add(bankStar); bankSp.userData.star=bankStar;
+
+  const ar=mulberry32(77);
+  for(let i=0;i<105;i++){
+    const star=mkStar(0xdfe7f2, 1.5+ar()*1.1);
+    const base=new THREE.Vector3((ar()-0.5)*92, (ar()-0.5)*76, (ar()-0.5)*44);
+    star.position.copy(base);
+    galaxy.add(star);
+    anonStars.push({star, base, from:new THREE.Vector3(), to:new THREE.Vector3()});
+  }
+  function addWave(star, base){
+    star.position.copy(base);
+    galaxy.add(star);
+    waveStars.push({star, base, from:new THREE.Vector3(), to:new THREE.Vector3()});
+  }
+  const wr=mulberry32(55);
+  for(let i=0;i<220;i++){
+    const th=wr()*Math.PI*2, ph=Math.acos(2*wr()-1), rad=26+Math.pow(wr(),0.75)*46;
+    addWave(mkStar(wr()<0.18?0xf3ddb4:0xe4ebf6, 1.3+wr()*1.2),
+      new THREE.Vector3(rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.8, rad*Math.cos(ph)));
+  }
+  const wr2=mulberry32(56);
+  for(let i=0;i<560;i++){
+    const th=wr2()*Math.PI*2, ph=Math.acos(2*wr2()-1), rad=28+Math.pow(wr2(),0.9)*78;
+    addWave(mkStar(wr2()<0.15?0xf3ddb4:0xdde6f4, 1.2+wr2()*1.2),
+      new THREE.Vector3(rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.8, rad*Math.cos(ph)));
+  }
+  const jr=mulberry32(99);
+  MIDWORDS.forEach((w)=>{
+    const th=jr()*Math.PI*2, ph=Math.acos(2*jr()-1), rad=44+jr()*62;
+    const sp=textSprite(w,{scale:2.9, color:"#b9b2a0"});
+    const base=new THREE.Vector3(rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.75, rad*Math.cos(ph));
+    sp.position.copy(base);
+    galaxy.add(sp);
+    midSprites.push({sp, name:w, base, from:new THREE.Vector3(), to:new THREE.Vector3()});
+  });
+  const gt=glowTex();
+  finGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:gt, color:0xd9a05b, transparent:true,
+    opacity:0, depthWrite:false, blending:THREE.AdditiveBlending}));
+  finGlow.position.copy(FIN_C); finGlow.scale.set(44,44,1); galaxy.add(finGlow);
+  rivGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:gt, color:0x7f9bb3, transparent:true,
+    opacity:0, depthWrite:false, blending:THREE.AdditiveBlending}));
+  rivGlow.position.copy(RIV_C); rivGlow.scale.set(44,44,1); galaxy.add(rivGlow);
+  function mkThread(w,color){
+    const g=new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6),3));
+    const m=new THREE.LineBasicMaterial({color, transparent:true, opacity:0,
+      blending:THREE.AdditiveBlending, depthWrite:false});
+    const line=new THREE.Line(g,m); galaxy.add(line);
+    return {line, mat:m, target:fg[w].star, side:FINSET.includes(w)?"fin":"riv"};
+  }
+  for(const w of FINSET) bankThreads.push(mkThread(w,0xd9a05b));
+  for(const w of RIVSET) bankThreads.push(mkThread(w,0x7f9bb3));
+
+  let down=false, lx=0, ly=0;
+  addEventListener("pointerdown",e=>{
+    if(cur<10) return;
+    if(e.target.closest("button")) return;
+    down=true; lx=e.clientX; ly=e.clientY; homing=false;
+  });
+  addEventListener("pointermove",e=>{ if(!down) return;
+    rotVelY=(e.clientX-lx)*0.0032; rotVelX=(e.clientY-ly)*0.0022;
+    lx=e.clientX; ly=e.clientY; });
+  addEventListener("pointerup",()=>{ down=false; });
+  addEventListener("resize",()=>{ camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+
+  threeReady=true;
+  let prev=performance.now();
+  (function loop(now){
+    requestAnimationFrame(loop);
+    const dt=Math.min(0.05,(now-prev)/1000); prev=now;
+    mom+=(momT-mom)*0.012;
+    if(homing){
+      const dy=((homeY-rotY+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
+      rotY+=dy*0.035; rotX+=(homeX-rotX)*0.035;
+      rotZ+=(0-rotZ)*0.03;
+    } else if(skyAlive){
+      const wt=now-wanderT0;
+      const spinGoal=(0.0014+0.0010*Math.sin(wt/8200))*mom;
+      spin+=(spinGoal-spin)*0.02;
+      rotY+=spin+rotVelY;
+      rotX+=0.0006*Math.cos(wt/5600)*mom + rotVelX;
+      rotZ+=0.0005*Math.sin(wt/7400)*mom;
+      rotVelY*=0.93; rotVelX*=0.93;
+      rotX=Math.max(-0.8,Math.min(0.8,rotX));
+    }
+    galaxy.rotation.y=rotY; galaxy.rotation.x=rotX; galaxy.rotation.z=rotZ;
+    for(const fc of farClusters) fc.group.rotation.y+=fc.rate*mom;
+    camZ+=(camZT-camZ)*0.035; camera.position.z=camZ;
+    rig.position.x+=(rigOffTarget()-rig.position.x)*0.08;
+    for(const f of fades) f.mat.opacity+=(f.t-f.mat.opacity)*f.rate;
+    for(let i=pops.length-1;i>=0;i--){
+      const p=pops[i], e=Math.min(1,(now-p.t0)/700);
+      const s=p.base*(0.25+0.75*(1-Math.pow(1-e,3))*(1+0.18*Math.sin(e*Math.PI)));
+      p.sp.scale.set(s*p.ax, s, 1);
+      if(e>=1){ p.sp.scale.set(p.base*p.ax, p.base, 1); pops.splice(i,1); }
+    }
+    for(let i=flares.length-1;i>=0;i--){
+      const fl=flares[i], e=(now-fl.t0)/1300;
+      if(e>=1){ fl.sp.material.color.setRGB(1,1,1);
+        fl.sp.scale.set(fl.sp.userData.bw, fl.sp.userData.bh, 1); flares.splice(i,1); continue; }
+      const p=Math.sin(Math.min(e,1)*Math.PI);
+      fl.sp.material.color.setRGB(1+0.6*p, 1+0.18*p, 1-0.3*p);
+      const k=1+0.34*p;
+      fl.sp.scale.set(fl.sp.userData.bw*k, fl.sp.userData.bh*k, 1);
+    }
+    /* word positions: target + time-boxed warp (no idle motion) */
+    const we = warpT0<0 ? 1 : Math.min(1,(now-warpT0)/WARP_DUR);
+    const wk = ease3(we);
+    for(const w of ALL_WORDS){
+      const e=fg[w];
+      if(!e.on) continue;
+      const ox=warpFrom[w].x+(warpTo[w].x-warpFrom[w].x)*wk,
+            oy=warpFrom[w].y+(warpTo[w].y-warpFrom[w].y)*wk,
+            oz=warpFrom[w].z+(warpTo[w].z-warpFrom[w].z)*wk;
+      e.star.position.set(e.target.x+ox, e.target.y+oy, e.target.z+oz);
+      e.label.position.set(e.target.x+ox, e.target.y+3.1+oy, e.target.z+oz);
+    }
+    for(const a of anonStars)
+      a.star.position.set(a.base.x + a.from.x+(a.to.x-a.from.x)*wk,
+                          a.base.y + a.from.y+(a.to.y-a.from.y)*wk,
+                          a.base.z + a.from.z+(a.to.z-a.from.z)*wk);
+    for(const m of midSprites)
+      m.sp.position.set(m.base.x + m.from.x+(m.to.x-m.from.x)*wk,
+                        m.base.y + m.from.y+(m.to.y-m.from.y)*wk,
+                        m.base.z + m.from.z+(m.to.z-m.from.z)*wk);
+    for(const sw of waveStars)
+      sw.star.position.set(sw.base.x + sw.from.x+(sw.to.x-sw.from.x)*wk,
+                           sw.base.y + sw.from.y+(sw.to.y-sw.from.y)*wk,
+                           sw.base.z + sw.from.z+(sw.to.z-sw.from.z)*wk);
+    if(warpT0>=0){
+      for(const cs of cloudSteps){
+        const arr=cs.attr.array;
+        for(let i=0;i<arr.length;i++)
+          arr[i]=cs.base[i] + cs.from[i]+(cs.to[i]-cs.from[i])*wk;
+        cs.attr.needsUpdate=true;
+      }
+    }
+    /* bank itself */
+    if(bankSp){
+      if(bankMode==="wobble"){
+        const ax=BANK_RIV.clone().sub(BANK_FIN).normalize();
+        bankSp.position.copy(BANK_HOME).addScaledVector(ax, 1.9*Math.sin(now/650));
+      } else if(bankMode==="fin"||bankMode==="riv"){
+        bankSp.position.lerp(bankMode==="fin"?BANK_FIN:BANK_RIV, 0.02);
+      } else if(bankMode==="convo"){
+        const be=bankTw.t0<0 ? 1 : Math.min(1,(now-bankTw.t0)/bankTw.dur);
+        bankSp.position.copy(bankTw.a).lerp(bankTw.b, ease3(be));
+      } else {
+        bankSp.position.lerp(BANK_HOME, 0.02);
+      }
+      bankSp.userData.star.position.set(bankSp.position.x, bankSp.position.y-3.1, bankSp.position.z);
+      for(const th of bankThreads){
+        const p=th.line.geometry.attributes.position.array;
+        const a=bankSp.userData.star.position, b=th.target.position;
+        p[0]=a.x; p[1]=a.y; p[2]=a.z; p[3]=b.x; p[4]=b.y; p[5]=b.z;
+        th.line.geometry.attributes.position.needsUpdate=true;
+      }
+    }
+    /* web lines follow the stars */
+    if(webMode!=="off" && webBuilt){
+      for(let b=0;b<webBatches.length;b++){
+        const arr=webBatches[b].geometry.attributes.position.array;
+        const chunk=webChunks[b];
+        for(let c=0;c<chunk.length;c++){
+          const A=webNodePos(chunk[c][0]), B=webNodePos(chunk[c][1]);
+          const o=c*6;
+          arr[o]=A.x; arr[o+1]=A.y; arr[o+2]=A.z;
+          arr[o+3]=B.x; arr[o+4]=B.y; arr[o+5]=B.z;
+        }
+        webBatches[b].geometry.attributes.position.needsUpdate=true;
+        if(webMode==="echo")
+          fadeTo(webBatches[b].material, Math.max(0, 0.05+0.14*Math.sin(now/1100-b*1.05)));
+      }
+    }
+    renderer.render(scene,camera);
+  })(performance.now());
+}
+function webNodePos(n){ return n.w ? fg[n.w].star.position : n.v; }
+function buildWeb(){
+  if(webBuilt) return;
+  const webNodes=[];
+  for(const w of ALL_WORDS) webNodes.push({w});
+  for(const a of anonStars) webNodes.push({v:a.star.position});
+  waveStars.forEach((s,i)=>{ if(i%3===0) webNodes.push({v:s.star.position}); });
+  const nLab=ALL_WORDS.length, nAnon=anonStars.length;
+  const basePos=webNodes.map(n=> n.w ? fg[n.w].target : n.v);
+  const r=mulberry32(31);
+  const edges=new Set(), list=[];
+  function addEdge(i,j){ if(i===j) return;
+    const key=i<j? i+"-"+j : j+"-"+i;
+    if(edges.has(key)) return; edges.add(key); list.push([i,j]); }
+  function nearest(i,kk){
+    const d=[];
+    for(let j=0;j<basePos.length;j++){ if(j===i) continue;
+      d.push([basePos[i].distanceToSquared(basePos[j]), j]); }
+    d.sort((a,b)=>a[0]-b[0]);
+    return d.slice(0,kk).map(x=>x[1]);
+  }
+  function farPick(i){
+    for(let tries=0;tries<24;tries++){
+      const j=Math.floor(r()*basePos.length);
+      if(j!==i && basePos[i].distanceTo(basePos[j])>70) return j;
+    }
+    return null;
+  }
+  for(let i=0;i<basePos.length;i++){
+    if(i<nLab){ nearest(i,4).forEach(j=>addEdge(i,j));
+      if(r()<0.85){ const f=farPick(i); if(f!==null) addEdge(i,f); } }
+    else if(i<nLab+nAnon){ nearest(i,2).forEach(j=>addEdge(i,j));
+      if(r()<0.35){ const f=farPick(i); if(f!==null) addEdge(i,f); } }
+    else { nearest(i,1).forEach(j=>addEdge(i,j));
+      if(r()<0.15){ const f=farPick(i); if(f!==null) addEdge(i,f); } }
+  }
+  for(let i=list.length-1;i>0;i--){ const j=Math.floor(r()*(i+1));
+    [list[i],list[j]]=[list[j],list[i]]; }
+  const NBATCH=5, per=Math.ceil(list.length/NBATCH);
+  for(let b=0;b<NBATCH;b++){
+    const chunk=list.slice(b*per,(b+1)*per).map(([i,j])=>[webNodes[i],webNodes[j]]);
+    const pos=new Float32Array(chunk.length*6);
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+    const mat=new THREE.LineBasicMaterial({color:0x9fb0c4, transparent:true, opacity:0,
+      blending:THREE.AdditiveBlending, depthWrite:false});
+    const seg=new THREE.LineSegments(geo,mat);
+    galaxy.add(seg); webBatches.push(seg); webChunks.push(chunk);
+  }
+  webBuilt=true;
+}
+function flareLabel(sp){ if(reduceMotion) return;
+  flares.push({sp, t0:performance.now()}); }
+function freezeOffset(from,to,wk){ from.lerpVectors(from,to,wk); to.copy(from); }
+/* one global token-tick: a strong, stepwise, everywhere update.
+   shift → stillness → shift, because the model updates per token. */
+function globalStep(){
+  const wr=mulberry32(Math.floor(Math.random()*1e9));
+  const now=performance.now();
+  const we = warpT0<0 ? 1 : Math.min(1,(now-warpT0)/WARP_DUR);
+  const wk=ease3(we);
+  /* every node steps at least a little; a subset jumps */
+  const tgt=(v,small,big,pBig)=>{
+    const m = wr()<pBig ? big[0]+wr()*(big[1]-big[0]) : small[0]+wr()*(small[1]-small[0]);
+    v.set((wr()-0.5)*2*m,(wr()-0.5)*2*m,(wr()-0.5)*2*m);
+  };
+  for(const w of ALL_WORDS){ freezeOffset(warpFrom[w], warpTo[w], wk);
+    tgt(warpTo[w],[0.5,1.2],[3.0,6.5],0.5); }
+  for(const m of midSprites){ freezeOffset(m.from, m.to, wk);
+    tgt(m.to,[0.5,1.1],[2.6,5.4],0.42); }
+  for(const a of anonStars){ freezeOffset(a.from, a.to, wk);
+    tgt(a.to,[0.6,1.3],[3.0,6.6],0.5); }
+  for(const sw of waveStars){ freezeOffset(sw.from, sw.to, wk);
+    tgt(sw.to,[0.55,1.2],[2.6,5.6],0.42); }
+  /* the deep clouds step per point — closer points read bigger by perspective */
+  for(const cs of cloudSteps){
+    const fr=cs.from, to=cs.to;
+    for(let i=0;i<fr.length;i+=3){
+      fr[i]  =fr[i]  +(to[i]  -fr[i]  )*wk;
+      fr[i+1]=fr[i+1]+(to[i+1]-fr[i+1])*wk;
+      fr[i+2]=fr[i+2]+(to[i+2]-fr[i+2])*wk;
+      const m = wr()<0.3 ? 2.6+wr()*2.4 : 0.6+wr()*0.9;
+      to[i]=(wr()-0.5)*2*m; to[i+1]=(wr()-0.5)*2*m; to[i+2]=(wr()-0.5)*2*m;
+    }
+  }
+  if(bankSp && wr()<0.5){
+    bankTw.a.copy(bankSp.position);
+    bankTw.b.copy(BANK_RIV).add(new THREE.Vector3((wr()-0.5)*6,(wr()-0.5)*6,(wr()-0.5)*6));
+    bankTw.t0=now;
+  }
+  warpT0=now;
+}
+function pumpGlobal(){
+  if(cur<19||cur>21) return;
+  if(!reduceMotion) globalStep();
+  timers.push(setTimeout(pumpGlobal, 1300));
+}
+/* T18: bank alone, swinging stepwise against the still sky */
+let bankFlip=false;
+function pumpBank(){
+  if(cur!==18) return;
+  bankTw.a.copy(bankSp.position);
+  bankTw.b.copy(BANK_FIN).lerp(BANK_RIV, bankFlip ? 0.7 : 0.3);
+  bankFlip=!bankFlip;
+  bankTw.t0=performance.now();
+  timers.push(setTimeout(pumpBank, 1700));
+}
+function warpReset(){
+  for(const w of ALL_WORDS){ warpFrom[w].set(0,0,0); warpTo[w].set(0,0,0); }
+  for(const a of anonStars){ a.from.set(0,0,0); a.to.set(0,0,0); }
+  for(const m of midSprites){ m.from.set(0,0,0); m.to.set(0,0,0); }
+  for(const sw of waveStars){ sw.from.set(0,0,0); sw.to.set(0,0,0); }
+  for(const cs of cloudSteps){
+    cs.from.fill(0); cs.to.fill(0);
+    cs.attr.array.set(cs.base); cs.attr.needsUpdate=true;
+  }
+  warpT0=-1;
+}
+
+/* ════════════════ single conversation bubbles over the galaxy (T16–T17) ════════════════ */
+const talk2=document.getElementById("talk2"), t2bubs=document.getElementById("t2bubs"),
+      arcsvg3=document.getElementById("arcsvg3");
+function t2Reset(){ t2bubs.innerHTML=""; arcsvg3.innerHTML=""; }
+const CONV_FIN=`<span class="who">You</span>"…my <b class="fin-b">savings</b> are tied up on <b class="fin-b">Wall Street</b> until the <b class="fin-b">loan</b> clears — I'll stop by the bank."`;
+const CONV_RIV=`<span class="who">You</span>"…the <b class="riv-b">trail</b> follows the <b class="riv-b">river</b> through the <b class="riv-b">mud</b> — meet me down at the bank."`;
+function t2Single(html){
+  t2Reset();
+  const d=document.createElement("div");
+  d.className="cbub user";
+  d.innerHTML=html;
+  t2bubs.appendChild(d);
+}
+
+/* ════════════════ STATE RESOLVER ════════════════ */
+function setHome(target, dist){
+  const r=Math.hypot(target.x,target.z);
+  homeY=Math.atan2(-target.x,target.z);
+  homeX=Math.max(-0.6,Math.min(0.6,Math.atan2(target.y,r)));
+  homing=true; camZT=Math.max(60, target.length()+dist);
+}
+function applyState(t, fwd){
+  if(t>=1 && t<=5) fieldState(t,fwd);
+  if(t>=6 && t<=9) convoState(t,fwd);
+  if(t<10){
+    if(threeReady){ skyAlive=false; homing=false; bankMode="home";
+      webMode="off"; webBatches.forEach(b=>fadeTo(b.material,0));
+      momT=1; warpReset(); talk2.classList.remove("show");
+      hideSky(); }
+    return;
+  }
+  initThree();
+  if(!skyAlive){ skyAlive=true; wanderT0=performance.now(); }
+  momT = t===18 ? 0.05 : (t>=19 ? 0.1 : 1);
+  /* the web: present and stepping from T18 to the end */
+  if(t>=19 && t<=21){ buildWeb();
+    webMode="steady";
+    if(t<=20) webBatches.forEach(b=>fadeTo(b.material, 0.15));
+    if(!reduceMotion) pumpGlobal();
+  } else { webMode="off"; webBatches.forEach(b=>fadeTo(b.material,0)); }
+  if(t===18 && !reduceMotion){ if(fwd) bankFlip=false; pumpBank(); }
+  /* T18 holds canonical positions: bank alone moves */
+  if(t<=18) warpReset();
+  /* bank behavior */
+  bankMode = t===15 ? "wobble" : t===16 ? "fin" : t===17 ? "riv" : (t>=18 ? "convo" : "home");
+  if(t<=14 && bankSp) bankSp.position.copy(BANK_HOME);
+  if(t>=18 && bankTw.t0<0){ bankTw.a.copy(bankSp.position); bankTw.b.copy(bankSp.position); }
+
+  const inBank = t>=11 && t<=17;
+  /* word layers */
+  for(const w of ALL_WORDS){
+    const e=fg[w]; e.on = t>=10;
+    let star=0, label=0;
+    if(t>=10 && t<20){
+      if(BANKISH.has(w)){
+        const side=FINSET.includes(w)?"fin":"riv";
+        const lit = (side==="fin" && t>=12) || (side==="riv" && t>=13);
+        star = inBank ? (lit?0.95:0.25) : t>=18 ? 0.6 : 0.5;
+        label= inBank ? (lit?0.85:0.08) : t>=18 ? 0.3 : 0.12;
+      } else {
+        star = inBank ? 0.12 : 0.9;
+        label= (inBank ? 0.04 : 0.5)*e.dimf;
+      }
+    }
+    fadeTo(e.star.material, star, t===20&&fwd?0.015:0.06);
+    fadeTo(e.label.material, label, t===20&&fwd?0.02:0.06);
+  }
+  /* bank itself */
+  fadeTo(bankSp.material, t>=11&&t<20 ? (t>=18?0.8:1) : (t===10?0.35:0), t===20&&fwd?0.02:0.06);
+  fadeTo(bankSp.userData.star.material, t>=11&&t<20 ? 0.95 : (t===10?0.4:0), t===20&&fwd?0.015:0.06);
+  /* sky layers */
+  const skyOn=t>=10 && t<20;
+  const skyRate=t===20&&fwd?0.015:0.06;
+  /* while bank is on stage, nothing additive may loiter inside the orbs */
+  bgB.visible=!inBank; bgC.visible=!inBank;
+  for(const fc of farClusters) fc.group.visible=!inBank;
+  for(const sw of waveStars) sw.star.visible=!inBank;
+  for(const a2 of anonStars) a2.star.visible=!inBank;
+  for(const m2 of midSprites) m2.sp.visible=!inBank;
+  for(const a of anonStars) fadeTo(a.star.material, skyOn ? (inBank?0:0.8) : 0, skyRate);
+  for(const sw2 of waveStars) fadeTo(sw2.star.material, skyOn ? (inBank?0:0.8) : 0, skyRate);
+  fadeTo(bgB.material, skyOn ? (inBank?0:0.5) : 0, skyRate);
+  fadeTo(bgC.material, skyOn ? (inBank?0:0.7) : 0, skyRate);
+  for(const fc of farClusters) fadeTo(fc.mat, skyOn ? (inBank?0:0.6) : 0, skyRate);
+  for(const m of midSprites) fadeTo(m.sp.material, skyOn ? (inBank?0:0.16) : 0, t===20&&fwd?0.02:0.06);
+  /* the two meanings: orbs only while bank is the explicit subject */
+  const finT = t===14||t===15 ? 0.4 : t===16 ? 0.52 : t===17 ? 0.16 : 0;
+  const rivT = t===14||t===15 ? 0.4 : t===17 ? 0.52 : t===16 ? 0.16 : 0;
+  fadeTo(finGlow.material, finT); fadeTo(rivGlow.material, rivT);
+  /* threads */
+  for(const th of bankThreads){
+    let v=0;
+    if(t===12 && th.side==="fin") v=0.5;
+    if(t===13 && th.side==="riv") v=0.5;
+    if(t===14||t===15) v=0.28;
+    if(t===16) v=th.side==="fin"?0.6:0.08;
+    if(t===17) v=th.side==="riv"?0.6:0.08;
+    fadeTo(th.mat, v);
+  }
+  /* camera */
+  if(inBank){
+    const mid=FIN_C.clone().add(RIV_C).multiplyScalar(0.5);
+    const dist = t>=16 ? 70 : 64;
+    if(!homing || (fwd && t===11)) setHome(mid, dist);
+    else camZT=Math.max(camZT, mid.length()+dist);
+  } else {
+    homing=false;
+    camZT = 150;
+  }
+  /* conversations over the galaxy */
+  if(t===16||t===17){
+    talk2.classList.toggle("low", t===17);
+    t2Single(t===16?CONV_FIN:CONV_RIV);
+    if(fwd){ talk2.classList.remove("show"); after(350,()=>talk2.classList.add("show")); }
+    else talk2.classList.add("show");
+  } else { talk2.classList.remove("show"); if(t<16||t>17) t2Reset(); }
+  /* T20 · stars out, the web alone keeps stepping; T21 releases it */
+  if(t===21){
+    if(fwd && !reduceMotion){
+      webBatches.forEach((b,i)=>after(400+i*650,()=>{
+        const f=fades.find(f=>f.mat===b.material);
+        if(f) fades.splice(fades.indexOf(f),1);
+        b.material.opacity=Math.max(b.material.opacity,0.05);
+        fadeTo(b.material,0,0.01);
+      }));
+      after(500+webBatches.length*650,()=>{ webMode="off"; });
+    } else { webMode="off"; webBatches.forEach(b=>fadeTo(b.material,0)); }
+  }
+  /* forward flourishes */
+  if(fwd){
+    if(t===12){ after(300,()=>{ flareLabel(fg.loan.label); flareLabel(fg.interest.label); });
+      after(680,()=>{ ["savings","vault","money"].forEach(w=>flareLabel(fg[w].label)); }); }
+    if(t===13){ after(300,()=>{ flareLabel(fg.river.label); flareLabel(fg.mud.label); });
+      after(680,()=>{ ["water","shore","reeds"].forEach(w=>flareLabel(fg[w].label)); }); }
+    if(t===14){ after(250,()=>{ flareLabel(bankSp); }); }
+  }
+}
+function hideSky(){
+  for(const w of ALL_WORDS){ fg[w].on=false;
+    fadeTo(fg[w].star.material,0); fadeTo(fg[w].label.material,0); }
+  if(bankSp){ fadeTo(bankSp.material,0); fadeTo(bankSp.userData.star.material,0); }
+  for(const a of anonStars) fadeTo(a.star.material,0);
+  for(const sw of waveStars) fadeTo(sw.star.material,0);
+  if(bgB){ fadeTo(bgB.material,0); fadeTo(bgC.material,0); }
+  for(const fc of farClusters) fadeTo(fc.mat,0);
+  for(const m of midSprites) fadeTo(m.sp.material,0);
+  if(finGlow){ fadeTo(finGlow.material,0); fadeTo(rivGlow.material,0); }
+  for(const th of bankThreads) fadeTo(th.mat,0);
+}
+
+/* warm the GPU early */
+setTimeout(()=>{ try{ initThree(); }catch(e){ console.error(e); } }, 1400);
+</script>
+</body>
+</html>
