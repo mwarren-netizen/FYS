@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Owning Your Work — Your Turn</title>
+<style>
+  :root{
+    --night:#07070d; --panel:#100e1b; --panel2:#15121f; --ink:#eae4d3; --ink-hi:#f4efe2; --ink-dim:#9a937f;
+    --amber:#d9a05b; --slate:#7f9bb3; --rose:#c4798a;
+    --serif: Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{ background:radial-gradient(135% 80% at 60% 0%, #100e1d 0%, var(--night) 50%, #040408 100%) fixed;
+    color:var(--ink); font-family:var(--serif); overflow:hidden; -webkit-font-smoothing:antialiased; }
+  #sky{ position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5; }
+  /* the widget scrolls itself — never the host LMS page */
+  #scroller{ position:relative; z-index:1; height:100%; overflow-y:auto; overflow-x:hidden; }
+  #stage{ width:min(620px,100%); margin:0 auto; padding:7vh 4vw 82vh; }
+
+  .panel{ background:var(--panel); border:1px solid rgba(234,228,211,.10); border-radius:16px; padding:26px 30px; }
+  .eyebrow{ font-family:var(--sans); font-size:10.5px; letter-spacing:.32em; text-transform:uppercase;
+    color:var(--amber); opacity:.9; margin-bottom:15px; }
+  .eyebrow .of{ color:var(--ink-dim); letter-spacing:.18em; }
+
+  .scene{ font-size:clamp(19px,3vw,24px); line-height:1.46; color:var(--ink-hi); }
+  .scene em{ font-style:italic; color:var(--amber); }
+
+  .sit{ margin-top:46px; animation:soft 1.5s cubic-bezier(.4,0,.2,1) both; }
+  .ana-wrap{ margin-top:2px; animation:soft 1.3s cubic-bezier(.4,0,.2,1) both; }
+  @keyframes soft{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+  .link{ display:flex; justify-content:center; padding:7px 0; color:var(--ink-dim); font-size:15px; }
+
+  .response{ background:var(--panel2); }
+  .think{ font-size:clamp(16.5px,2.3vw,18.5px); line-height:1.62; color:#b8b09a; font-style:italic; }
+  .think em{ color:var(--ink-hi); font-style:italic; }
+
+  /* pivot + payoff are present from the start (so the card never reflows) and just fade opacity in */
+  .pivot{ margin-top:18px; font-size:clamp(18px,2.5vw,22px); line-height:1.4; color:var(--ink-hi);
+    opacity:1; transition:opacity .85s ease; }
+  .two{ margin-top:16px; font-size:calc(clamp(20px,2.9vw,26px) * var(--g,1)); line-height:1.3;
+    opacity:1; transition:opacity .85s ease; }
+  .pivot.hide,.two.hide{ opacity:0; }
+  .two .n{ color:var(--amber); font-style:italic; margin-right:.5em; }
+  .two .l1{ color:var(--ink-hi); } .two .l2{ color:var(--amber); }
+
+  #ctrl{ margin-top:24px; min-height:46px; }
+  .row{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  button{ font-family:var(--sans); cursor:pointer; border-radius:99px; letter-spacing:.05em; transition:.2s; border:1px solid transparent; }
+  .primary{ background:var(--amber); color:#1a130a; font-size:14px; font-weight:600; padding:12px 25px; }
+  .primary.arrow{ padding:12px 22px; font-size:16px; }
+  .primary:hover{ background:#e6b370; transform:translateY(-1px); }
+  .ghost{ background:transparent; color:var(--ink-dim); border-color:rgba(234,228,211,.2); font-size:13px; padding:11px 21px; }
+  .ghost:hover{ color:var(--ink); border-color:rgba(234,228,211,.45); }
+  button:focus-visible{ outline:2px solid var(--slate); outline-offset:3px; }
+  .kbd{ font-family:var(--sans); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink-dim); opacity:.6; }
+
+  .hero .big{ font-size:clamp(34px,6vw,56px); line-height:1.05; color:var(--ink-hi); letter-spacing:-.01em; }
+  .hero .sub{ margin-top:18px; font-size:clamp(16px,2.3vw,19px); line-height:1.6; color:var(--ink-dim); font-style:italic; max-width:30em; }
+  .closer{ margin-top:54px; animation:soft 1.4s cubic-bezier(.4,0,.2,1) both; }
+
+  @media (prefers-reduced-motion: reduce){ .sit,.ana-wrap,.closer{ animation:none; } .pivot,.two{ transition:none; } }
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div id="scroller"><main id="stage" aria-live="polite"></main></div>
+
+<script>
+"use strict";
+
+/* married pairs: scene[i] carries think[i] + pivot[i]. pivots address the student (2nd person). */
+const PAIRS = [
+  { scene:`You didn't finish the reading, so you had AI summarize the last chapter before class.`,
+    think:`I read most of it — the summary's only for the chapter I didn't reach. Which was, admittedly, the chapter I was assigned. Catching up, or quietly skipping the work itself? I've been turning this over for a while now.`,
+    pivot:`You could end the whole inquest in about ninety seconds if you&mdash;` },
+
+  { scene:`You wrote the essay, but you had AI build the outline first.`,
+    think:`The ideas are mine; it only put them in order — a fancier version of the outline templates from high school, which nobody flagged. Unless arranging the argument was the part I was meant to do myself.`,
+    pivot:`Or — bold move — you could just&mdash;` },
+
+  { scene:`Grammarly didn't fix a comma. It rewrote the whole sentence, and now it's better than anything you'd write.`,
+    think:`It only cleaned up my writing, which they want. Except it didn't fix a comma — it replaced the sentence, and the new one is sharper than anything I'd produce. So whose sentence is it now?`,
+    pivot:`Before you take this authorship dispute to court, here's a thought&mdash;` },
+
+  { scene:`You didn't get the concept, so you had AI explain it until it clicked.`,
+    think:`It explained the concept until it clicked — nearer a tutor than a ghostwriter. Except I'm not sure I could reconstruct it on my own. Somewhere between learning and leaning, and I can't tell which side I'm on.`,
+    pivot:`Rather than diagnose yourself from the inside — hey, I've got an idea&mdash;` },
+
+  { scene:`You had AI generate a practice quiz to study from.`,
+    think:`This is the harmless kind, surely — I built myself a study set, which is <em>more</em> work, not less. Unless it drilled me on the wrong things and I walk in confident about nothing. Is that a me problem, or a&mdash;`,
+    pivot:`A checkable one, as it turns out. Why don't you just&mdash;` },
+
+  { scene:`A teammate did their part of the group project with AI. All your names go on it.`,
+    think:`It wasn't me — but we submit as a group, so it's my name on work that isn't ours. Redo it, flag it, say nothing? I didn't sign up for an ethics seminar this semester.`,
+    pivot:`Before you appoint yourself judge and jury, how about you simply&mdash;` },
+
+  { scene:`The source is in a language you barely read, so you ran it through AI translation.`,
+    think:`I can barely read the language, so I had AI translate the source — basically a faster dictionary. Except I can't check whether it got it right, and if it mangled one line, I'd never know. My whole argument might be resting on a sentence the machine fumbled. Cool. Cool cool cool.`,
+    pivot:`Before you build your case on a sentence you can't read, maybe&mdash;` },
+
+  { scene:`You wrote every word, then AI "polished" it — and you kept one sentence it suggested.`,
+    think:`I wrote every word. Then it tightened a paragraph and I kept a single sentence I hadn't written. Whether that crosses a line I honestly don't know — and the line isn't drawn anywhere I can see it.`,
+    pivot:`Funny thing about invisible lines: someone can just tell you where they are. So&mdash;` },
+
+  { scene:`You found the perfect source, so you had AI put it "in your own words" to dodge plagiarism.`,
+    think:`I was trying to do the honest thing — I couldn't quote all of it, so I had it reworded to avoid plagiarizing. Except now I've run someone else's idea through a machine and signed my name to it. Which might be the worse offense.`,
+    pivot:`Before you out-clever yourself into a real violation — try the boring thing&mdash;` },
+
+  { scene:`You're nervous about the wording, so you had AI draft the email asking whether AI is allowed.`,
+    think:`I got nervous about the phrasing, so I had it draft the email — the one asking whether I'm allowed to use it. The email isn't graded. The question inside it, though, is the whole matter.`,
+    pivot:`That one resolves itself the second you&mdash;` },
+
+  { scene:`You made your argument, then asked AI for the counterarguments to answer.`,
+    think:`I made the argument myself; I only asked for the objections so I could answer them. That's steelmanning — it makes the essay stronger. Or I skipped the part I was meant to struggle through and kept the credit for it.`,
+    pivot:`Instead of hosting a debate in your skull, why not just&mdash;` },
+];
+
+const N = PAIRS.length;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const READ_THINK = 8000;   // ms the analysis sits alone before the one-liner fades in
+const READ_PIVOT = 3000;   // ms the one-liner sits before the payoff fades in
+const GROW = 0.07;         // how much bigger the payoff gets each appearance
+
+function rulesHTML(g, hidden){ return `<div class="two${hidden?' hide':''}" style="--g:${g.toFixed(3)}">
+  <span class="n">1</span><span class="l1">Check your syllabus.</span><br>
+  <span class="n">2</span><span class="l2">Ask your professor.</span></div>`; }
+
+const scroller = document.getElementById('scroller');
+const stage = document.getElementById('stage');
+let feed, ctrl, idx=-1, mode='intro';            // intro | await-think | reveal | await-next | await-done | done
+let curPanel=null, pivotEl=null, payoffEl=null, curStep=0, revealTimer=null;
+
+function introHTML(){ return `<div class="hero">\n  <div class="big">Where's the line?</div>
+  <p class="sub">Situations every student runs into. Sit with each one — the answer starts to look familiar.</p></div>`; }
+
+function build(){
+  stage.innerHTML = `<div id="feed"></div><div id="ctrl"></div>`;
+  feed = document.getElementById('feed'); ctrl = document.getElementById('ctrl');
+  idx=-1; mode='intro'; curStep=0; clearReveal(); feed.innerHTML = introHTML(); setCtrl('Begin →');
+}
+function setCtrl(label, ghost){
+  if(!label){ ctrl.innerHTML=''; return; }
+  const arrowOnly = label.trim()==='→';
+  ctrl.innerHTML = `<div class="row"><button class="${ghost?'ghost':'primary'}${arrowOnly?' arrow':''}" data-${ghost?'restart':'go'}>${label}</button>${ghost?'':'<span class="kbd">space / →</span>'}</div>`;
+  const b=ctrl.querySelector('button'); if(b) b.focus({preventScroll:true});
+}
+function clearReveal(){ if(revealTimer){ clearTimeout(revealTimer); revealTimer=null; } }
+function smoothScroll(top){
+  top=Math.max(0,top);
+  if(reduceMotion){ scroller.scrollTop=top; return; }
+  const start=scroller.scrollTop, dist=top-start, t0=performance.now(), dur=850;
+  (function step(now){ let p=Math.min(1,(now-t0)/dur); p=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+    scroller.scrollTop=start+dist*p; if(now-t0<dur) requestAnimationFrame(step); })(performance.now());
+}
+function scrollToEl(el){
+  const gap=18;
+  const top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - gap;
+  smoothScroll(top);
+}
+
+function addSituation(i){
+  const d=document.createElement('div'); d.className='panel sit';
+  d.innerHTML=`<div class="eyebrow">Situation ${i+1} <span class="of">of ${N}</span></div><p class="scene">${PAIRS[i].scene}</p>`;
+  feed.appendChild(d); requestAnimationFrame(()=>scrollToEl(d));
+}
+function openAnalysis(i){
+  const w=document.createElement('div'); w.className='ana-wrap';
+  w.innerHTML=`<div class="link" aria-hidden="true">↓</div><div class="panel response">
+    <div class="eyebrow">Analysis</div>
+    <p class="think">${PAIRS[i].think}</p>
+    <p class="pivot hide">${PAIRS[i].pivot}</p>
+    ${rulesHTML(1 + i*GROW, true)}</div>`;
+  feed.appendChild(w);
+  curPanel=w; pivotEl=w.querySelector('.pivot'); payoffEl=w.querySelector('.two'); curStep=0;
+  requestAnimationFrame(()=>scrollToEl(w));
+  clearReveal(); revealTimer=setTimeout(revealNext, reduceMotion?0:READ_THINK);
+}
+function revealNext(){
+  clearReveal();
+  if(curStep===0){ pivotEl.classList.remove('hide'); curStep=1; revealTimer=setTimeout(revealNext, reduceMotion?0:READ_PIVOT); }
+  else if(curStep===1){ payoffEl.classList.remove('hide'); curStep=2;
+    if(idx<N-1){ mode='await-next'; setCtrl('Next situation →'); }
+    else { mode='await-done'; setCtrl('Add it up →'); } }
+}
+function addCloser(){
+  const d=document.createElement('div'); d.className='hero closer';
+  d.innerHTML=`<div class="big">Every spiral.<br>One answer.</div>
+    <p class="sub">The next situation wouldn't be any different — so skip ahead to where it always lands:</p>
+    <div class="panel response" style="margin-top:20px">${rulesHTML(1 + (N+1)*GROW, false)}</div>`;
+  feed.appendChild(d); requestAnimationFrame(()=>scrollToEl(d));
+}
+
+function advance(){
+  if(mode==='intro'){ idx=0; addSituation(0); mode='await-think'; setCtrl('Think it through →'); }
+  else if(mode==='await-think'){ openAnalysis(idx); mode='reveal'; setCtrl('→'); }
+  else if(mode==='reveal'){ revealNext(); }               // hurry past the timers if impatient
+  else if(mode==='await-next'){ idx++; addSituation(idx); mode='await-think'; setCtrl('Think it through →'); }
+  else if(mode==='await-done'){ addCloser(); mode='done'; setCtrl('Run it again', true); }
+}
+
+stage.addEventListener('click', e=>{
+  if(e.target.closest('[data-go]')) advance();
+  else if(e.target.closest('[data-restart]')){ build(); smoothScroll(0); }
+});
+addEventListener('keydown', e=>{
+  const t=e.target; if(t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+  if((e.key===' '||e.key==='ArrowRight') && mode!=='done'){ e.preventDefault(); advance(); }
+});
+
+/* ambient starfield */
+const sky=document.getElementById('sky'), sx=sky.getContext('2d'); let stars=[];
+function seed(){ stars=[]; const n=Math.min(150, Math.floor(innerWidth*innerHeight/9000));
+  for(let i=0;i<n;i++) stars.push({x:Math.random(),y:Math.random(),r:Math.random()*1.1+.2,a:Math.random()*.5+.15,t:Math.random()*6.28,
+    c:Math.random()<.12?'217,160,91':(Math.random()<.18?'127,155,179':'234,228,211')}); }
+function drawSky(now){ const W=sky.width=innerWidth,H=sky.height=innerHeight; sx.clearRect(0,0,W,H);
+  for(const s of stars){ const fl=.6+.4*Math.sin(now*.001+s.t); sx.beginPath(); sx.arc(s.x*W,s.y*H,s.r,0,7);
+    sx.fillStyle=`rgba(${s.c},${s.a*fl})`; sx.fill(); } requestAnimationFrame(drawSky); }
+addEventListener('resize',seed); seed(); requestAnimationFrame(drawSky);
+
+build();
+</script>
+</body>
+</html>
