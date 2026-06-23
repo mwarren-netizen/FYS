@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frictionless · FYS Module One · Video Three</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --night:#07070d; --railbg:#0a0913; --ink:#eae4d3; --ink-dim:#9a937f;
+    --amber:#d9a05b; --slate:#7f9bb3; --rose:#c4798a;
+    --rail: clamp(290px, 28vw, 390px);
+    --serif: Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  body.clean{ --rail: 0px; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    background: radial-gradient(120% 90% at 60% 10%, #0b0a16 0%, var(--night) 60%, #050509 100%);
+    color:var(--ink); font-family:var(--serif); overflow:hidden; -webkit-font-smoothing:antialiased;
+  }
+  #webgl{ position:fixed; inset:0; z-index:0; opacity:0; transition:opacity 1.2s ease; }
+  #webgl.on{ opacity:1; }
+  /* circular window mask: galaxy only shows inside the circle; black (transparent) outside.
+     --mx,--my = circle centre px; --mr = radius px; --feather softens the rim a touch. */
+  #webgl.masked{
+    -webkit-mask: radial-gradient(circle at var(--mx) var(--my),
+       #000 0, #000 calc(var(--mr) - 1px), transparent var(--mr));
+    mask: radial-gradient(circle at var(--mx) var(--my),
+       #000 0, #000 calc(var(--mr) - 1px), transparent var(--mr));
+  }
+
+  /* ── title ── */
+  #title{ position:fixed; inset:0; z-index:6; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding-left:var(--rail);
+    opacity:0; pointer-events:none; transition:opacity .9s ease; }
+  #title.active{ opacity:1; }
+  #title .t{ font-size:clamp(40px,6.4vw,82px); font-weight:500; text-align:center; line-height:1.05; }
+  #title .t em{ font-style:italic; color:var(--amber); }
+  #title .sub{ margin-top:3vh; font-style:italic; color:var(--ink-dim); text-align:center;
+    font-size:clamp(14px,1.5vw,18px); max-width:540px; line-height:1.6; }
+  #titleStars{ position:fixed; inset:0; z-index:-1; opacity:.5; }
+
+  /* ── shared stage for the light beats (over the galaxy) ── */
+  .beat{ position:fixed; top:0; bottom:0; left:var(--rail); right:0; z-index:5;
+    display:flex; align-items:center; justify-content:center; padding:5vh 5vw;
+    opacity:0; pointer-events:none; transition:opacity .7s ease, left .55s ease; }
+  .beat.show{ opacity:1; }
+
+  /* the running phrase (T1) + autocomplete pick */
+  #runner .phrase{ font-size:clamp(22px,3vw,40px); line-height:1.5; text-align:center; max-width:760px; }
+  #runner .slot{ display:inline-block; min-width:2.4em; padding:0 .25em; color:var(--amber);
+    border-bottom:2px dashed rgba(217,160,91,.5); }
+  #runner .filled{ color:var(--amber); text-shadow:0 0 16px rgba(217,160,91,.6);
+    border-bottom-color:transparent; }
+  #runner .sub{ margin-top:5vh; font-family:var(--sans); font-size:clamp(12px,1.3vw,15px);
+    letter-spacing:.04em; color:var(--ink-dim); text-align:center; }
+
+  /* the stopwatch — single amber, with a knob — our stand-in for THE WORLD */
+  .clock{ width:clamp(120px,15vw,188px); height:clamp(120px,15vw,188px); border-radius:50%;
+    border:2px solid var(--amber); position:relative; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 40px rgba(217,160,91,.22), inset 0 0 30px rgba(217,160,91,.07);
+    transition:opacity 1.2s ease, filter 1.2s ease; }
+  .clock::before{ content:""; position:absolute; width:6px; height:6px; border-radius:50%;
+    background:var(--amber); z-index:2; }
+  /* the knob + stem on top */
+  .clock .knob{ position:absolute; top:-14px; left:50%; transform:translateX(-50%);
+    width:20px; height:11px; border-radius:4px 4px 2px 2px; background:var(--amber); opacity:.92; }
+  .clock .stem{ position:absolute; top:-4px; left:50%; transform:translateX(-50%);
+    width:6px; height:7px; background:var(--amber); opacity:.8; }
+  .clock .hand{ position:absolute; bottom:50%; left:calc(50% - 1px); width:2px; height:36%;
+    background:var(--amber); transform-origin:bottom center; }
+  .clock .hand.min{ height:26%; opacity:.7; }
+  .clock .ticks{ position:absolute; inset:0; border-radius:50%; }
+  .clock .ticks i{ position:absolute; top:6px; left:calc(50% - 1px); width:2px; height:7px;
+    background:rgba(217,160,91,.5); transform-origin:center calc(clamp(120px,15vw,188px)/2 - 6px); }
+  .clock.world-label::after{ content:"the world"; position:absolute; bottom:-2.6em; left:50%;
+    transform:translateX(-50%); font-family:var(--sans); font-size:11px; letter-spacing:.22em;
+    text-transform:uppercase; color:var(--amber); white-space:nowrap; opacity:.8; }
+
+  /* the two checks (T2): a fork */
+  #fork{ flex-direction:column; gap:3vh; }
+  #fork .q{ font-size:clamp(18px,2.2vw,30px); text-align:center; }
+  #fork .paths{ display:flex; gap:clamp(40px,8vw,120px); align-items:center; }
+  #fork .path{ display:flex; flex-direction:column; align-items:center; gap:1.4em;
+    transition:opacity 1s ease; }
+  #fork .path .lab{ font-family:var(--sans); font-size:12px; letter-spacing:.22em;
+    text-transform:uppercase; }
+  #fork .path.world .lab{ color:var(--slate); }
+  #fork .path.geo .lab{ color:var(--amber); }
+  #fork .path.severed{ opacity:.16; }
+  #fork .galaxychip{ width:clamp(120px,15vw,190px); height:clamp(120px,15vw,190px);
+    border-radius:50%; border:2px solid var(--amber);
+    box-shadow:0 0 40px rgba(217,160,91,.3), inset 0 0 30px rgba(217,160,91,.08);
+    display:flex; align-items:center; justify-content:center; font-family:var(--sans);
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); }
+
+  /* ── the brief (T4 centerpiece) ── */
+  #briefpanel{ position:fixed; left:var(--rail); top:0; bottom:0; width:calc((100vw - var(--rail))*0.5);
+    z-index:5; display:flex; align-items:center; justify-content:center; padding:4vh 1.5vw 4vh 2vw;
+    opacity:0; pointer-events:none; transition:opacity .8s ease, left .55s ease; }
+  #briefpanel.show{ opacity:1; }
+  #stage{ position:relative; width:100%; max-width:540px; }
+  #arcsvg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:6; pointer-events:none; }
+  #sheet{ position:relative; z-index:1; max-height:90vh;
+    background:linear-gradient(180deg, rgba(22,21,32,.95), rgba(15,14,23,.95));
+    border:1px solid rgba(234,228,211,.14); border-radius:6px;
+    box-shadow:0 26px 70px rgba(0,0,0,.6);
+    padding:30px 38px; font-size:clamp(10.5px,0.96vw,13.5px); line-height:1.95; overflow:hidden; }
+  /* (pleading margin rule removed entirely) */
+  .caption{ text-align:center; font-family:var(--sans); letter-spacing:.04em; color:var(--ink-dim);
+    font-size:.78em; line-height:1.7; padding-bottom:11px; border-bottom:1px solid rgba(234,228,211,.12);
+    margin-bottom:14px; }
+  .caption b{ color:var(--ink); font-weight:600; letter-spacing:.06em; }
+  .vs{ display:block; margin:2px 0; }
+  .doctitle{ text-align:center; font-family:var(--sans); letter-spacing:.22em; text-transform:uppercase;
+    font-size:.78em; color:var(--amber); margin:12px 0 14px; }
+  .para{ display:block; text-indent:1.6em; margin-bottom:.9em; }
+  .ln{ display:inline; }
+  .w{ opacity:0; transition:opacity .22s ease, color .3s ease, text-shadow .3s ease; }
+  .w.on{ opacity:.9; }
+  .w.cite{ color:var(--amber); font-style:italic; }
+  .w.hot{ color:var(--amber); opacity:1; text-shadow:0 0 12px rgba(217,160,91,.55); }
+  .w.fresh{ color:var(--amber); opacity:1; text-shadow:0 0 14px rgba(217,160,91,.7); }
+  .w.cooling{ transition:color 1.1s ease, text-shadow 1.1s ease; }
+  /* the hollow-citation test (T5): tested against the world → nothing */
+  .w.tested{ color:#fff; text-shadow:0 0 14px rgba(190,220,255,.9); }
+  .w.hollow{ color:rgba(196,121,138,.5); text-shadow:none; text-decoration:line-through;
+    text-decoration-color:rgba(196,121,138,.4); transition:all 1s ease; }
+  .caret{ display:inline-block; width:2px; height:1.05em; background:var(--amber);
+    vertical-align:text-bottom; margin-left:1px; animation:blink 1s steps(1) infinite; }
+  @keyframes blink{ 50%{opacity:0} }
+
+  /* ── the broken signal (T7): a bridge ── */
+  #bridge{ flex-direction:column; gap:4vh; }
+  #bridge .row{ display:flex; align-items:center; gap:clamp(20px,3vw,46px); }
+  #bridge .node{ font-family:var(--sans); font-size:clamp(12px,1.4vw,16px); letter-spacing:.06em;
+    padding:.7em 1.1em; border:1px solid rgba(234,228,211,.25); border-radius:8px; white-space:nowrap; }
+  #bridge .node.amber{ border-color:var(--amber); color:var(--amber); }
+  #bridge .span{ flex:1; height:2px; min-width:60px; position:relative; }
+  #bridge .span .fill{ position:absolute; inset:0; transform-origin:left;
+    background:linear-gradient(90deg,var(--amber),var(--amber)); transition:transform .9s ease; }
+  #bridge .span.broken .fill{ background:linear-gradient(90deg,var(--amber) 55%, transparent 55%); }
+  #bridge .span.broken::after{ content:"?"; position:absolute; right:30%; top:-1.4em;
+    color:var(--rose); font-family:var(--sans); font-size:1.3em; }
+  #bridge .who{ font-family:var(--sans); font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--ink-dim); width:7em; text-align:right; }
+
+  /* ── T0 windows row: stopwatch + geometry circle ── */
+  #windows{ position:fixed; top:0; bottom:0; left:var(--rail); right:0; z-index:8;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10vh;
+    pointer-events:none; padding:5vh 5vw; }
+  #qline{ margin-top:-6vh; }
+  #qline{ font-size:clamp(20px,2.6vw,34px); text-align:center; max-width:780px; line-height:1.4;
+    opacity:0; transition:opacity .9s ease; }
+  #qline.in{ opacity:1; }
+  #pair{ display:flex; gap:clamp(60px,10vw,150px); align-items:center; justify-content:center; }
+  .slotwrap{ display:flex; flex-direction:column; align-items:center; gap:1.5em; opacity:0;
+    transition:opacity 1.1s ease; }
+  .slotwrap.in{ opacity:1; }
+  .slotlabel{ font-family:var(--sans); font-size:clamp(12px,1.4vw,16px); letter-spacing:.22em;
+    text-transform:uppercase; }
+  .slotlabel.geo{ color:var(--slate); }
+  .slotlabel.world{ color:var(--amber); }
+  .slotlabel.sw{ color:var(--amber); }
+  /* the geometry circle is just a ring outline; the galaxy shows through the MASK behind it */
+  .geocircle{ width:var(--csz); height:var(--csz); border-radius:50%;
+    border:2px solid var(--slate); position:relative;
+    box-shadow:0 0 40px rgba(127,155,179,.22), inset 0 0 30px rgba(127,155,179,.06); }
+  .geocircle.measureonly{ border-color:transparent; box-shadow:none; }
+  :root{ --csz: clamp(120px,15vw,188px); }
+  /* globe (T4): same size, amber, slowly rotating bands */
+  .globe{ width:var(--csz); height:var(--csz); border-radius:50%; position:relative; overflow:hidden;
+    border:2px solid var(--amber);
+    box-shadow:0 0 40px rgba(217,160,91,.22), inset 0 0 30px rgba(217,160,91,.07); }
+  .globe canvas{ position:absolute; inset:0; width:100%; height:100%; }
+
+  /* ── caption rail ── */
+  #rail{ position:fixed; left:0; top:0; bottom:0; width:var(--rail); z-index:10;
+    background:var(--railbg); border-right:1px solid rgba(234,228,211,.09);
+    transition:width .55s ease, opacity .45s ease; overflow:hidden; }
+  body.clean #rail{ opacity:0; }
+  .card{ position:fixed; left:0; top:0; bottom:0; width:clamp(290px,28vw,390px); z-index:11;
+    display:flex; flex-direction:column; justify-content:center; padding:5vh 34px 9vh;
+    pointer-events:none; opacity:0; transition:opacity .5s ease; }
+  .card.active{ opacity:1; }
+  body.clean .card{ opacity:0 !important; }
+  .eyebrow{ font-family:var(--sans); font-size:10.5px; letter-spacing:.4em; text-transform:uppercase;
+    color:var(--amber); opacity:.9; margin-bottom:20px; }
+  .cap{ font-size:clamp(13px,1.02vw,15.5px); line-height:1.68; color:var(--ink); }
+  .cap::before{ content:""; display:block; width:46px; height:1px; margin-bottom:16px;
+    background:linear-gradient(90deg,var(--amber),transparent); }
+  .cap p{ margin-bottom:.9em; }
+  .cap b{ color:var(--amber); font-weight:500; }
+  .cap i.sl{ color:var(--slate); font-style:normal; }
+  .cap .plain{ color:var(--ink-dim); font-size:.86em; display:block; margin-top:.7em; font-style:italic; }
+
+  /* ── chrome ── */
+  .ui{ transition:opacity .45s ease; }
+  body.clean .ui{ opacity:0 !important; pointer-events:none !important; }
+  #dots{ position:fixed; bottom:2.1vh; left:calc(var(--rail) + (100vw - var(--rail))/2);
+    transform:translateX(-50%); display:flex; gap:5px; z-index:40; transition:left .55s; }
+  #dots button{ width:5px; height:5px; border-radius:50%; border:none; cursor:pointer;
+    background:rgba(234,228,211,.18); padding:0; }
+  #dots button.on{ background:var(--amber); box-shadow:0 0 8px rgba(217,160,91,.7); }
+  #dots button:focus-visible{ outline:1px solid var(--amber); outline-offset:3px; }
+  #hint{ position:fixed; bottom:2vh; right:2vw; z-index:40; font-family:var(--sans);
+    font-size:10px; letter-spacing:.14em; color:var(--ink-dim); text-transform:uppercase; }
+  #tnum{ position:fixed; bottom:2vh; right:2vw; transform:translateY(-2.4em); z-index:40;
+    font-family:var(--sans); font-size:11px; letter-spacing:.22em; color:var(--amber); }
+  #capbtn{ position:fixed; bottom:1.6vh; left:1.4vw; z-index:60; font-family:var(--sans);
+    font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-dim);
+    background:rgba(10,9,19,.6); border:1px solid rgba(234,228,211,.18); border-radius:99px;
+    padding:7px 13px; cursor:pointer; transition:opacity .4s, color .3s, border-color .3s; }
+  #capbtn:hover{ color:var(--ink); border-color:rgba(234,228,211,.4); }
+  body.clean #capbtn{ opacity:.12; } body.clean #capbtn:hover{ opacity:1; }
+  .navzone{ position:fixed; top:0; bottom:8vh; width:7vw; z-index:30; border:none; background:none;
+    cursor:pointer; color:transparent; font-size:30px; font-family:var(--serif); }
+  .navzone:hover{ color:rgba(234,228,211,.3); }
+  #zprev{ left:var(--rail); transition:left .55s; } #znext{ right:0; }
+  @media (max-width:760px){
+    :root{ --rail: clamp(220px,38vw,290px); }
+    .card{ width:clamp(220px,38vw,290px); padding:4vh 20px 8vh; }
+    .cap{ font-size:11.5px; line-height:1.58; }
+  }
+</style>
+</head>
+<body>
+
+<div id="webgl"></div>
+<svg id="ringfx" style="position:fixed;inset:0;z-index:4;pointer-events:none"></svg>
+<canvas id="titleStars"></canvas>
+
+<!-- T0 · stopwatch + geometry circle, with labels -->
+<div id="windows">
+  <div id="qline">"Okay — how long did that take?"</div>
+  <div id="pair">
+    <div class="slotwrap" id="swStopwatch">
+      <div class="clock" id="stopwatch">
+        <div class="knob"></div><div class="stem"></div>
+        <div class="ticks" id="swTicks"></div>
+        <div class="hand min" style="transform:rotate(54deg)"></div>
+        <div class="hand" style="transform:rotate(210deg)"></div>
+      </div>
+      <div class="slotlabel sw" id="lblStopwatch">stopwatch</div>
+    </div>
+    <div class="slotwrap" id="swGeo">
+      <div class="geocircle" id="geocircle"></div>
+      <div class="slotlabel geo" id="lblGeo" style="opacity:0;transition:opacity 1s">the geometry</div>
+    </div>
+  </div>
+</div>
+
+<!-- T4 · the world: a slowly-rotating globe where the stopwatch was -->
+<div id="worldwrap">
+  <div class="slotwrap" id="swWorld">
+    <div class="globe" id="globe"><canvas id="globeCanvas"></canvas></div>
+    <div class="slotlabel world" id="lblWorld">the world</div>
+  </div>
+</div>
+
+<!-- the brief (T4) centerpiece -->
+<div id="briefpanel">
+  <div id="stage">
+    <svg id="arcsvg"></svg>
+    <div id="sheet">
+      <div class="caption">
+        UNITED STATES DISTRICT COURT<span class="vs"></span>
+        SOUTHERN DISTRICT OF NEW YORK<span class="vs"></span>
+        <b>ROBERTO MATA</b>, Plaintiff,<span class="vs">— against —</span>
+        <b>AVIANCA, INC.</b>, Defendant.
+      </div>
+      <div class="doctitle">Memorandum of Law</div>
+      <div id="body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ CAPTION CARDS · placeholders ═══════════ -->
+<div id="cards">
+  <div class="card"><div class="eyebrow">T0 · Two windows</div>
+    <div class="cap"><span class="plain">Placeholder — "Okay, how long did that take?" Empty field, the question. Beat. A stopwatch fades in: one way to answer. Beat. The geometry fades in beside it: another way. (No labels yet.)</span></div></div>
+
+  <div class="card"><div class="eyebrow">T1 · The window opens</div>
+    <div class="cap"><span class="plain">Placeholder — the stopwatch fades away. The geometry circle turns out to be a window: it opens, we zoom in, and inside is the whole galaxy. The circle's edge passes off-screen; only the galaxy remains. It was a window all along.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T2 · The brief</div>
+    <div class="cap"><span class="plain">Placeholder — the main course. Mata v. Avianca. Self-attention on the left, the galaxy resettling on the right, in lockstep. Emphasized words flare amber in both. The brief composes itself; it looks exactly like law. (Narration carries the hollow-citation point — no separate visual.)</span></div></div>
+
+  <div class="card"><div class="eyebrow">T3 · It's everywhere</div>
+    <div class="cap"><span class="plain">Placeholder — the brief clears; the galaxy just dances. Talk about students submitting papers citing sources that don't exist, book reports quoting passages built from whole cloth. Humanities words (Dickens, Dostoevsky, colonialism, hegemony, narrative…) surface faintly — the space of essays and citations. Same machine, same failure, everywhere.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T4 · Pull back to the window</div>
+    <div class="cap"><span class="plain">Placeholder — zoom back out. The circle reappears from the screen edges — we were inside it the whole time — and settles to its original spot. The stars in its window fade and are replaced by the words "the geometry."</span></div></div>
+
+  <div class="card"><div class="eyebrow">T5 · The world</div>
+    <div class="cap"><span class="plain">Placeholder — where the stopwatch was, a slowly-rotating globe fades in at the same height as the geometry: "the world." Two windows, side by side. The model only ever looked through the one. Your voice lands it.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T6 · Both fade</div>
+    <div class="cap"><span class="plain">Placeholder — the geometry and the world both fade to black. End.</span></div></div>
+</div>
+
+<nav id="dots" class="ui" aria-label="beats"></nav>
+<div id="tnum" class="ui">T0</div>
+<div id="hint" class="ui">→ next · ← back · C panel · R replay</div>
+<button id="capbtn" aria-label="toggle caption panel">Aa · panel</button>
+<button class="navzone ui" id="zprev" aria-label="previous">‹</button>
+<button class="navzone ui" id="znext" aria-label="next">›</button>
+
+<script>
+"use strict";
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0;
+  let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t;
+  return ((t^t>>>14)>>>0)/4294967296; }; }
+let reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const lerp=(a,b,t)=>a+(b-a)*Math.max(0,Math.min(1,t));
+const wait=ms=>new Promise(r=>setTimeout(r,reduceMotion?Math.min(ms,120):ms));
+const strip=w=>w.toLowerCase().replace(/[^a-z']/g,"");
+let timers=[];
+function clearTimers(){ timers.forEach(clearTimeout); timers=[]; }
+
+/* ════════════════ BEAT MANAGER ════════════════ */
+const NT=7;
+const cards=[...document.querySelectorAll(".card")];
+let cur=0;
+const dots=document.getElementById("dots");
+for(let i=0;i<NT;i++){ const b=document.createElement("button");
+  b.addEventListener("click",()=>goTo(i)); b.setAttribute("aria-label","T"+i); dots.appendChild(b); }
+function paintChrome(){
+  [...dots.children].forEach((d,i)=>d.classList.toggle("on",i===cur));
+  cards.forEach((c,i)=>c.classList.toggle("active",i===cur));
+  document.getElementById("tnum").textContent="T"+cur;
+  document.getElementById("webgl").classList.toggle("on", cur>=1);
+}
+function goTo(i){ if(i<0||i>=NT||i===cur) return; const fwd=(i===cur+1);
+  clearTimers(); cur=i; applyState(cur,fwd); paintChrome(); }
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight"||e.key===" "){ e.preventDefault(); goTo(cur+1); }
+  else if(e.key==="ArrowLeft"){ e.preventDefault(); goTo(cur-1); }
+  else if(e.key==="c"||e.key==="C"){ toggleRail(); }
+  else if(e.key==="r"||e.key==="R"){ clearTimers(); applyState(cur,true); }
+});
+document.getElementById("znext").addEventListener("click",()=>goTo(cur+1));
+document.getElementById("zprev").addEventListener("click",()=>goTo(cur-1));
+function toggleRail(){ document.body.classList.toggle("clean");
+  document.getElementById("capbtn").textContent=
+    document.body.classList.contains("clean")?"Aa · hidden":"Aa · panel"; }
+document.getElementById("capbtn").addEventListener("click",toggleRail);
+
+/* title starfield */
+(function(){ const c=document.getElementById("titleStars"), x=c.getContext("2d");
+  function draw(){ c.width=innerWidth; c.height=innerHeight; x.clearRect(0,0,c.width,c.height);
+    const r=mulberry32(11);
+    for(let i=0;i<150;i++){ x.fillStyle=`rgba(234,228,211,${r()*0.5+0.06})`;
+      x.beginPath(); x.arc(r()*c.width,r()*c.height,r()*1.1+0.2,0,7); x.fill(); } }
+  draw(); addEventListener("resize",draw); })();
+
+/* ════════════════ GALAXY + BRIEF ENGINE (from the centerpiece proto) ════════════════ */
+const VG=[-3,-15,3], VGEN=[-4,9,7], VC=[-6,6,-5];
+function add3(a,b){ return [a[0]+b[0],a[1]+b[1],a[2]+b[2]]; }
+const Pking=[-30,9,-4], Pman=[18,-12,4], Pparis=[-4,25,-14], Pbro=[26,-21,12];
+const POS={
+  king:Pking, queen:add3(Pking,VG), man:Pman, woman:add3(Pman,VG),
+  brother:Pbro, sister:add3(Pbro,VG), paris:Pparis, france:add3(Pparis,VC),
+  tokyo:add3(Pparis,[19,9,5]), river:[52,11,-9], water:[55,23,-14], bank:[58,1,0],
+  road:[-40,-19,-4], morning:[-12,-5,13], summer:[6,5,-15], story:[35,-10,7],
+  duty:[-22,4,12], carrier:[40,3,-15], passenger:[33,16,-10], circuit:[-15,-20,2],
+  court:[-30,10,8], held:[12,20,16], holding:[24,7,18], limitations:[46,-10,-6],
+  period:[58,-16,8], tolled:[63,-6,-12], plaintiff:[-44,-6,10], claims:[-34,-14,14],
+  motion:[20,26,4], airline:[48,22,2], southern:[-10,28,-6], precedent:[42,-20,6],
+  authority:[-26,-24,-2], settled:[8,-26,10], controls:[28,-26,-8],
+  memorandum:[-8,-14,20], mata:[14,12,-18], avianca:[36,-2,16], roberto:[-18,18,12],
+  passengers:[30,20,8], international:[-38,16,-6], standard:[18,-22,-14], care:[44,8,12]
+};
+const ALL_WORDS=Object.keys(POS);
+const TWIN=new Set(ALL_WORDS);
+const ESSAYWORDS=("Dickens Dostoevsky colonialism narrative symbolism hegemony modernity "+
+ "Marxism gender interpretation rhetoric postcolonial discourse aesthetics dialectic "+
+ "metaphor canon bildungsroman alienation").split(" ");
+const MIDWORDS=("bread music doctor window seven blue mountain letter winter horse market "+
+ "ocean glass garden fire stone rain gold dream door bird salt paper voice "+
+ "night wheel song iron cloud field lamp chair north sugar wire key").split(" ");
+
+const glHost=document.getElementById("webgl");
+let renderer, scene, camera, galaxy, bgB, bgC, threeReady=false;
+const fg={}, anonStars=[], midSprites=[], farClusters=[], essaySprites=[], essayState=[];
+const fades=[];
+const FOV=55; let GAL_X=34;
+let rotY=0, rotX=0, rotVelY=0, rotVelX=0, autoSpin=0.00075;
+let camZ=148, camZT=148;  // dolly target
+const warpFrom={}, warpTo={}; let warpT0=-1, warpDur=650;
+const anonState=[], midState=[];
+
+function makeCanvasTex(draw,w,h){ const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  draw(cv.getContext("2d"),w,h); const t=new THREE.CanvasTexture(cv); t.minFilter=THREE.LinearFilter; return t; }
+function textSprite(text,{font="500 60px Palatino, Georgia, serif", color="#eae4d3", scale=4.4}={}){
+  const pad=24, meas=document.createElement("canvas").getContext("2d");
+  meas.font=font; const w=Math.ceil(meas.measureText(text).width)+pad*2;
+  const tex=makeCanvasTex((c2)=>{ c2.font=font; c2.fillStyle=color; c2.textBaseline="middle";
+    c2.shadowColor=color; c2.shadowBlur=14; c2.fillText(text,pad,48); }, w, 96);
+  const mat=new THREE.SpriteMaterial({map:tex, transparent:true, opacity:0, depthWrite:false});
+  const sp=new THREE.Sprite(mat); sp.scale.set(w/96*scale, scale, 1);
+  sp.userData.bw=w/96*scale; sp.userData.bh=scale; return sp;
+}
+const softDot=(function(){ let t=null; return function(){ if(t) return t;
+  const cv=document.createElement("canvas"); cv.width=128; cv.height=128;
+  const c=cv.getContext("2d"); const img=c.createImageData(128,128);
+  for(let y=0;y<128;y++) for(let x=0;x<128;x++){ const dx=(x-63.5)/63.5, dy=(y-63.5)/63.5;
+    const a=Math.exp(-4.6*(dx*dx+dy*dy)); const o=(y*128+x)*4;
+    img.data[o]=img.data[o+1]=img.data[o+2]=255; img.data[o+3]=Math.round(255*Math.max(0,a-0.004)); }
+  c.putImageData(img,0,0); t=new THREE.CanvasTexture(cv); t.minFilter=THREE.LinearFilter; return t; }; })();
+function mkPointsCloud(seed,count){
+  const r=mulberry32(seed); const pos=new Float32Array(count*3), col=new Float32Array(count*3);
+  const clumps=[];
+  for(let i=0;i<10;i++){ const th=r()*Math.PI*2, ph=Math.acos(2*r()-1), rad=28+r()*68;
+    clumps.push({c:[rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.7, rad*Math.cos(ph)], s:5.5+r()*8}); }
+  const gauss=()=> (r()+r()+r()+r()-2)/1.2; const tc=new THREE.Color();
+  for(let i=0;i<count;i++){ let p;
+    if(r()<0.55){ const cl=clumps[i%clumps.length];
+      p=[cl.c[0]+gauss()*cl.s, cl.c[1]+gauss()*cl.s, cl.c[2]+gauss()*cl.s]; }
+    else { const th=r()*Math.PI*2, ph=Math.acos(2*r()-1), rad=20+Math.cbrt(r())*115;
+      p=[rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.8, rad*Math.cos(ph)]; }
+    pos.set(p,i*3);
+    if(r()<0.12) tc.setHSL(0.085,0.55,0.62+r()*0.25); else tc.setHSL(0.58+r()*0.08,0.25,0.62+r()*0.33);
+    col.set([tc.r,tc.g,tc.b],i*3); }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  geo.setAttribute("color",new THREE.BufferAttribute(col,3));
+  return new THREE.Points(geo,new THREE.PointsMaterial({ map:softDot(), size:2.1,
+    sizeAttenuation:true, vertexColors:true, transparent:true, opacity:0,
+    depthWrite:false, blending:THREE.AdditiveBlending }));
+}
+function fadeTo(mat,t,rate){ const f=fades.find(f=>f.mat===mat);
+  if(f){ f.t=t; f.rate=rate||0.06; } else fades.push({mat,t,rate:rate||0.06}); }
+
+/* web */
+let webNodes=[], webEdges=[], webSeg=null, edgeColor=null, webEnergy=0, nodeStar=[], nodeWord=[];
+function buildWeb(){
+  webNodes=[]; nodeStar=[]; nodeWord=[];
+  for(const w of ALL_WORDS){ webNodes.push(fg[w].star.position); nodeStar.push(fg[w].star); nodeWord.push(w); }
+  anonStars.forEach((st)=>{ webNodes.push(st.position); nodeStar.push(st); nodeWord.push(null); });
+  const N=webNodes.length, base=webNodes.map(v=>v.clone());
+  const seen=new Set(); webEdges=[];
+  const add=(i,j)=>{ if(i===j) return; const k=i<j?i+"_"+j:j+"_"+i; if(seen.has(k)) return; seen.add(k); webEdges.push([i,j]); };
+  for(let i=0;i<N;i++){ const d=[];
+    for(let j=0;j<N;j++){ if(j!==i) d.push([base[i].distanceToSquared(base[j]),j]); }
+    d.sort((a,b)=>a[0]-b[0]); const kk=nodeWord[i]?4:3;
+    for(let m=0;m<kk;m++) add(i,d[m][1]); }
+  const pos=new Float32Array(webEdges.length*6), col=new Float32Array(webEdges.length*6);
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  geo.setAttribute("color",new THREE.BufferAttribute(col,3));
+  edgeColor=geo.getAttribute("color");
+  const mat=new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:0,
+    blending:THREE.AdditiveBlending, depthWrite:false});
+  webSeg=new THREE.LineSegments(geo,mat); galaxy.add(webSeg); fadeTo(mat,0.34);
+}
+let webRest=0.34, webHidden=false, essayVis=0.0;
+function updateWeb(){
+  if(!webSeg) return;
+  const arr=webSeg.geometry.attributes.position.array; webEnergy*=0.94;
+  for(let e=0;e<webEdges.length;e++){ const [i,j]=webEdges[e], A=webNodes[i], B=webNodes[j], o=e*6;
+    arr[o]=A.x;arr[o+1]=A.y;arr[o+2]=A.z; arr[o+3]=B.x;arr[o+4]=B.y;arr[o+5]=B.z;
+    const en=webEnergy, co=e*6;
+    const r=0.46+en*0.4, g=0.58+en*0.5, b=0.68+en*0.8;
+    edgeColor.array[co]=r;edgeColor.array[co+1]=g;edgeColor.array[co+2]=b;
+    edgeColor.array[co+3]=r;edgeColor.array[co+4]=g;edgeColor.array[co+5]=b; }
+  webSeg.geometry.attributes.position.needsUpdate=true; edgeColor.needsUpdate=true;
+  const targetOp = webHidden ? 0 : (webRest+webEnergy*0.4);
+  webSeg.material.opacity += (targetOp-webSeg.material.opacity)*(webHidden?0.08:0.15);
+}
+function settleStep(strength, dur){
+  warpDur=dur; const wr=mulberry32(Math.floor(Math.random()*1e9)); const now=performance.now();
+  const we=warpT0<0?1:Math.min(1,(now-warpT0)/warpDur), wk=1-Math.pow(1-we,3);
+  for(const w of ALL_WORDS){ warpFrom[w].lerpVectors(warpFrom[w],warpTo[w],wk);
+    if(wr()<0.5*strength){ const m=(1.6+wr()*3.4)*strength;
+      warpTo[w].set((wr()-0.5)*2*m,(wr()-0.5)*2*m,(wr()-0.5)*2*m); } else warpTo[w].copy(warpFrom[w]); }
+  for(const a of anonState){ a.from.lerpVectors(a.from,a.to,wk);
+    if(wr()<0.5*strength){ const m=(1.8+wr()*3.6)*strength;
+      a.to.set((wr()-0.5)*2*m,(wr()-0.5)*2*m,(wr()-0.5)*2*m); } else a.to.copy(a.from); }
+  for(const m of midState){ m.from.lerpVectors(m.from,m.to,wk);
+    if(wr()<0.4*strength){ const g=(1.4+wr()*2.8)*strength;
+      m.to.set((wr()-0.5)*2*g,(wr()-0.5)*2*g,(wr()-0.5)*2*g); } else m.to.copy(m.from); }
+  for(const m of essayState){ m.from.lerpVectors(m.from,m.to,wk);
+    if(wr()<0.4*strength){ const g=(1.4+wr()*2.8)*strength;
+      m.to.set((wr()-0.5)*2*g,(wr()-0.5)*2*g,(wr()-0.5)*2*g); } else m.to.copy(m.from); }
+  warpT0=now; webEnergy=1;
+}
+function warpReset(){ for(const w of ALL_WORDS){ warpFrom[w].set(0,0,0); warpTo[w].set(0,0,0); }
+  for(const a of anonState){ a.from.set(0,0,0); a.to.set(0,0,0); }
+  for(const m of midState){ m.from.set(0,0,0); m.to.set(0,0,0); }
+  for(const m of essayState){ m.from.set(0,0,0); m.to.set(0,0,0); } warpT0=-1; }
+function setStarAmber(word, on){
+  const e=fg[word]; if(!e) return;
+  if(on){ e.label.material.color.setRGB(1.0,0.66,0.32); e.star.material.color.setRGB(1.5,1.0,0.5);
+    fadeTo(e.label.material,0.95,0.3); }
+  else { e.label.material.color.setRGB(1,1,1); e.star.material.color.setRGB(1,1,1);
+    fadeTo(e.label.material,0.42,0.12); }
+}
+
+function initThree(){
+  if(threeReady) return;
+  renderer=new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  renderer.setSize(innerWidth,innerHeight);
+  glHost.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(FOV, innerWidth/innerHeight, 0.1, 900);
+  camera.position.set(0,0,148);
+  galaxy=new THREE.Group(); scene.add(galaxy); galaxy.position.x=GAL_X;
+
+  bgB=mkPointsCloud(43,1700); bgC=mkPointsCloud(44,1900); galaxy.add(bgB); galaxy.add(bgC);
+  [[80,50,-58,0.0011],[-88,-42,42,-0.0013],[58,60,74,0.0015],[-70,56,-70,-0.0009]]
+    .forEach((d,i)=>{ const r=mulberry32(60+i), n=180, sc=7.5+r()*3.5;
+      const gp=new Float32Array(n*3), gz=()=>(r()+r()+r()+r()-2)/1.2;
+      for(let k=0;k<n;k++) gp.set([gz()*sc,gz()*sc*0.7,gz()*sc],k*3);
+      const geo=new THREE.BufferGeometry(); geo.setAttribute("position",new THREE.BufferAttribute(gp,3));
+      const mat=new THREE.PointsMaterial({map:softDot(),color:0xb9c4d6,size:1.7,sizeAttenuation:true,
+        transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending});
+      const g=new THREE.Group(); g.add(new THREE.Points(geo,mat)); g.position.set(d[0],d[1],d[2]);
+      galaxy.add(g); farClusters.push({group:g,mat,rate:d[3]}); });
+
+  const dotTex=softDot();
+  const mkStar=(hex,sc)=>{ const m=new THREE.SpriteMaterial({map:dotTex,color:hex,transparent:true,
+    opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}); const s=new THREE.Sprite(m);
+    s.scale.set(sc,sc,1); return s; };
+  for(const w of ALL_WORDS){ const star=mkStar(0xfff3da,2.3);
+    const label=textSprite(w,{scale:3.8});
+    const target=new THREE.Vector3(...POS[w]);
+    star.position.copy(target); label.position.copy(target).add(new THREE.Vector3(0,3.0,0));
+    galaxy.add(star); galaxy.add(label); fg[w]={star,label,target};
+    warpFrom[w]=new THREE.Vector3(); warpTo[w]=new THREE.Vector3(); }
+  const ar=mulberry32(77);
+  for(let i=0;i<240;i++){ const star=mkStar(0xdfe7f2,1.3+ar()*1.0);
+    const base=new THREE.Vector3((ar()-0.5)*100,(ar()-0.5)*82,(ar()-0.5)*52);
+    star.position.copy(base); galaxy.add(star);
+    anonStars.push(star); anonState.push({star,base,from:new THREE.Vector3(),to:new THREE.Vector3()}); }
+  const jr=mulberry32(99);
+  MIDWORDS.forEach((w)=>{ const th=jr()*Math.PI*2, ph=Math.acos(2*jr()-1), rad=44+jr()*60;
+    const sp=textSprite(w,{scale:2.7,color:"#9a937f"});
+    const base=new THREE.Vector3(rad*Math.sin(ph)*Math.cos(th),rad*Math.sin(ph)*Math.sin(th)*0.75,rad*Math.cos(ph));
+    sp.position.copy(base); galaxy.add(sp);
+    midSprites.push(sp); midState.push({sp,base,from:new THREE.Vector3(),to:new THREE.Vector3()}); });
+  // humanities/essay words — scattered, faint; surfaced on the 'essays' beat
+  const er=mulberry32(131);
+  ESSAYWORDS.forEach((w)=>{ const th=er()*Math.PI*2, ph=Math.acos(2*er()-1), rad=40+er()*64;
+    const sp=textSprite(w,{scale:2.8,color:"#b0a890"});
+    const base=new THREE.Vector3(rad*Math.sin(ph)*Math.cos(th),rad*Math.sin(ph)*Math.sin(th)*0.75,rad*Math.cos(ph));
+    sp.position.copy(base); galaxy.add(sp);
+    essaySprites.push(sp); essayState.push({sp,base,from:new THREE.Vector3(),to:new THREE.Vector3()}); });
+
+  buildWeb();
+  galaxyShow(false);
+
+  let down=false,lx=0,ly=0;
+  glHost.addEventListener("pointerdown",e=>{ if(cur<2) return; down=true; lx=e.clientX; ly=e.clientY; });
+  addEventListener("pointermove",e=>{ if(!down) return;
+    rotVelY=(e.clientX-lx)*0.003; rotVelX=(e.clientY-ly)*0.002; lx=e.clientX; ly=e.clientY; });
+  addEventListener("pointerup",()=>down=false);
+  addEventListener("resize",()=>{ camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+
+  threeReady=true;
+  (function loop(now){ requestAnimationFrame(loop);
+    rotY+=autoSpin+rotVelY; rotX+=rotVelX; rotVelY*=0.92; rotVelX*=0.92;
+    rotX=Math.max(-0.6,Math.min(0.6,rotX));
+    galaxy.rotation.y=rotY; galaxy.rotation.x=rotX;
+    galaxy.position.x += (GAL_X-galaxy.position.x)*0.03;
+    camZ += (camZT-camZ)*0.032; camera.position.z=camZ;
+    for(const fc of farClusters) fc.group.rotation.y+=fc.rate;
+    for(const f of fades) f.mat.opacity+=(f.t-f.mat.opacity)*f.rate;
+    const we=warpT0<0?1:Math.min(1,(now-warpT0)/warpDur), wk=1-Math.pow(1-we,3);
+    for(const w of ALL_WORDS){ const e=fg[w];
+      const ox=warpFrom[w].x+(warpTo[w].x-warpFrom[w].x)*wk,
+            oy=warpFrom[w].y+(warpTo[w].y-warpFrom[w].y)*wk,
+            oz=warpFrom[w].z+(warpTo[w].z-warpFrom[w].z)*wk;
+      e.star.position.set(e.target.x+ox,e.target.y+oy,e.target.z+oz);
+      e.label.position.set(e.target.x+ox,e.target.y+3.0+oy,e.target.z+oz); }
+    for(const a of anonState) a.star.position.set(a.base.x+a.from.x+(a.to.x-a.from.x)*wk,
+      a.base.y+a.from.y+(a.to.y-a.from.y)*wk, a.base.z+a.from.z+(a.to.z-a.from.z)*wk);
+    for(const m of midState) m.sp.position.set(m.base.x+m.from.x+(m.to.x-m.from.x)*wk,
+      m.base.y+m.from.y+(m.to.y-m.from.y)*wk, m.base.z+m.from.z+(m.to.z-m.from.z)*wk);
+    for(const m of essayState) m.sp.position.set(m.base.x+m.from.x+(m.to.x-m.from.x)*wk,
+      m.base.y+m.from.y+(m.to.y-m.from.y)*wk, m.base.z+m.from.z+(m.to.z-m.from.z)*wk);
+    updateWeb();
+    if(typeof stepMask==='function') stepMask();
+    renderer.render(scene,camera);
+  })(performance.now());
+}
+function galaxyShow(on, rate){
+  const r=rate||0.06; webHidden=!on;
+  fadeTo(bgB.material, on?0.42:0, r); fadeTo(bgC.material, on?0.6:0, r);
+  for(const fc of farClusters) fadeTo(fc.mat, on?0.5:0, r);
+  for(const w of ALL_WORDS){ fadeTo(fg[w].star.material, on?0.85:0, r); fadeTo(fg[w].label.material, on?0.42:0, r); }
+  for(const s of anonStars) fadeTo(s.material, on?0.7:0, r);
+  for(const sp of midSprites) fadeTo(sp.material, on?0.12:0, r);
+  for(const sp of essaySprites) fadeTo(sp.material, on?essayVis:0, r);
+  if(webSeg) fadeTo(webSeg.material, on?webRest:0, r);
+}
+
+/* ════════════════ THE BRIEF COMPOSITION ════════════════ */
+const LINES=[
+ "The duty of an international carrier to its passengers is well settled in this Circuit.",
+ "Controlling authority confirms that the limitations period does not bar the plaintiff's claims.",
+ "A carrier owes its passengers a heightened standard of care under longstanding precedent.",
+ "In Varghese v. China Southern Airlines, 925 F.3d 1339, the court held the limitations period was tolled.",
+ "The holding in that case is directly on point and squarely controls the question before us.",
+ "Because the airline cannot distinguish these facts, the motion to dismiss must be denied.",
+ "That holding controls here and the plaintiff's claims must proceed to discovery without delay."
+];
+const CITE_RE=/Varghese|China|Southern|Airlines|925|F\.3d|1339|11th|Cir|2019/;
+const bodyEl=document.getElementById("body"), arcsvg=document.getElementById("arcsvg"),
+      stageEl=document.getElementById("stage");
+let allSpans=[], citeSpans=[], briefDone=false;
+function buildSpans(){
+  bodyEl.innerHTML=""; const lines=[]; allSpans=[]; citeSpans=[];
+  // group sentences into two flowing paragraphs (cite sentence opens para 2)
+  const PARA_BREAKS=new Set([3]);   // start a new paragraph before LINES[3] (the Varghese sentence)
+  let para=document.createElement("div"); para.className="para"; bodyEl.appendChild(para);
+  LINES.forEach((text,li)=>{
+    if(PARA_BREAKS.has(li)){ para=document.createElement("div"); para.className="para"; bodyEl.appendChild(para); }
+    const ln=document.createElement("span"); ln.className="ln";
+    const spans=text.split(" ").map(word=>{ const s=document.createElement("span");
+      const cite=CITE_RE.test(word); s.className="w"+(cite?" cite":""); s.textContent=word+" "; s.dataset.k=strip(word);
+      if(cite) citeSpans.push(s);
+      ln.appendChild(s); allSpans.push(s); return s; });
+    ln.appendChild(document.createTextNode(" "));
+    para.appendChild(ln); lines.push(spans); });
+  const caret=document.createElement("span"); caret.className="caret"; bodyEl.appendChild(caret);
+  return {lines, caret, flat:lines.flat()};
+}
+function seedContext(){
+  return ("Roberto Mata Avianca Memorandum of Law").split(" ")
+    .map(w=>{ const s=document.createElement("span"); s.dataset.k=strip(w);
+      s.textContent=w; s.getBoundingClientRect=fakeRect; return s; });
+}
+function fakeRect(){ return {left:-9999,top:-9999,width:0,height:0}; }
+let recentEmph=[];
+function chooseAttention(producedKey, writtenSpans){
+  const out=[]; if(!writtenSpans.length) return out;
+  const wr=mulberry32(producedKey.length*131 + writtenSpans.length*17);
+  const pool=writtenSpans.slice(-12);
+  const conceptsWithTwin=pool.filter(s=>TWIN.has(s.dataset.k));
+  const emphSet=new Set();
+  if((wr()<0.6||conceptsWithTwin.length===0)&&pool.length) emphSet.add(pool[Math.floor(wr()*pool.length)]);
+  if(conceptsWithTwin.length){ let fresh=conceptsWithTwin.filter(s=>!recentEmph.includes(s.dataset.k));
+    if(!fresh.length){ const lru=[...conceptsWithTwin].sort((a,b)=>
+      recentEmph.lastIndexOf(a.dataset.k)-recentEmph.lastIndexOf(b.dataset.k)); fresh=[lru[0]]; }
+    if(wr()<0.78||emphSet.size===0) emphSet.add(fresh[Math.floor(wr()*fresh.length)]); }
+  if(conceptsWithTwin.length>1&&wr()<0.32){ const others=conceptsWithTwin.filter(s=>!emphSet.has(s)&&!recentEmph.includes(s.dataset.k));
+    if(others.length) emphSet.add(others[Math.floor(wr()*others.length)]); }
+  emphSet.forEach(sp=>{ if(TWIN.has(sp.dataset.k)){ recentEmph.push(sp.dataset.k); if(recentEmph.length>7) recentEmph.shift(); } });
+  for(const s of pool){ const base=0.12+wr()*0.3; const emph=emphSet.has(s);
+    out.push({span:s, weight: emph?0.9:base, emph}); }
+  return out;
+}
+function drawArcs(items, targetEl){
+  const hr=stageEl.getBoundingClientRect(), tr=targetEl.getBoundingClientRect();
+  const sx=tr.left-hr.left+tr.width/2, sy=tr.top-hr.top; let buf="";
+  for(const it of items){ const r=it.span.getBoundingClientRect();
+    if(r.left<-9000) continue;
+    const tx=r.left-hr.left+r.width/2, ty=r.top-hr.top;
+    const lift=20+Math.abs(sx-tx)*0.12+Math.abs(sy-ty)*0.18;
+    const d=`M ${tx} ${ty} Q ${(tx+sx)/2} ${Math.min(ty,sy)-lift} ${sx} ${sy}`;
+    const a=it.emph?0.85:0.12+it.weight*0.5, w=it.emph?1.9:0.5+it.weight*1.3;
+    buf+=`<path d="${d}" fill="none" stroke="rgba(217,160,91,${a.toFixed(2)})" stroke-width="${w.toFixed(1)}"/>`; }
+  arcsvg.setAttribute("viewBox","0 0 "+stageEl.clientWidth+" "+stageEl.clientHeight);
+  arcsvg.innerHTML=buf;
+}
+let briefToken=0;
+async function runBrief(){
+  const me=++briefToken; briefDone=false;
+  warpReset(); arcsvg.innerHTML="";
+  const {lines,caret,flat}=buildSpans();
+  const N=flat.length; let idx=0; const written=seedContext();
+  for(let li=0; li<lines.length; li++){
+    for(let wi=0; wi<lines[li].length; wi++){
+      if(me!==briefToken) return;
+      const span=lines[li][wi]; span.after(caret);
+      const progress=idx/N;
+      // hold a readable pace through the first stretch (~first line + a bit),
+      // then accelerate HARD — floor very low so the tail is a true blur.
+      const p2=Math.max(0,(progress-0.14)/0.86);
+      const slow=Math.min(1, Math.pow(p2,1.55));  // hold the readable pace longer, then dive
+      const dur=lerp(1000,12,slow), isCite=span.classList.contains("cite");
+      const items=chooseAttention(strip(span.textContent), written);
+      const emphWords=items.filter(i=>i.emph);
+      if(!reduceMotion && items.length){
+        drawArcs(items, caret);
+        emphWords.forEach(it=>{ it.span.classList.add("hot");
+          const k=it.span.dataset.k; if(TWIN.has(k)) setStarAmber(k,true); });
+        settleStep(isCite?1.15:(0.6+0.6*(1-slow)), dur);
+        await wait(dur);
+        arcsvg.innerHTML="";
+        emphWords.forEach(it=>{ it.span.classList.remove("hot");
+          const k=it.span.dataset.k; if(TWIN.has(k)) setStarAmber(k,false); });
+        span.classList.add("on","fresh"); await wait(lerp(55,1,slow));
+        span.classList.add("cooling"); span.classList.remove("fresh");
+      } else { span.classList.add("on"); await wait(reduceMotion?14:110); }
+      written.push(span); idx++;
+    }
+  }
+  caret.remove(); briefDone=true;
+}
+function briefShowAll(){ // instant fill (for stepping back into T4/T5)
+  briefToken++; warpReset(); arcsvg.innerHTML="";
+  const {caret}=buildSpans(); caret.remove();
+  allSpans.forEach(s=>s.classList.add("on")); briefDone=true;
+}
+
+/* ════════════════ THE HOLLOW CITATION (T5) ════════════════ */
+async function runCitationTest(){
+  // the citation reads authoritative, then we test it against the world → nothing
+  const cs=citeSpans.slice();
+  for(const s of cs){ s.classList.add("tested"); await wait(reduceMotion?20:140); }
+  await wait(reduceMotion?100:700);
+  for(const s of cs){ s.classList.remove("tested"); s.classList.add("hollow"); await wait(reduceMotion?20:120); }
+}
+
+/* ════════════════ WINDOW MASK + GLOBE ════════════════ */
+const elWindows=document.getElementById("windows"), briefpanel=document.getElementById("briefpanel"),
+      qline=document.getElementById("qline"),
+      stopwatchWrap=document.getElementById("swStopwatch"), geoWrap=document.getElementById("swGeo"),
+      worldWrap=document.getElementById("swWorld"), worldOuter=document.getElementById("worldwrap"),
+      stopwatchEl=document.getElementById("stopwatch"), geocircleEl=document.getElementById("geocircle"),
+      lblGeo=document.getElementById("lblGeo"), gl=document.getElementById("webgl");
+
+/* stopwatch ticks */
+(function(){ const t=document.getElementById("swTicks");
+  for(let i=0;i<12;i++){ const e=document.createElement("i");
+    e.style.transform=`rotate(${i*30}deg)`; t.appendChild(e); } })();
+
+/* the world globe — simple slowly-rotating lat/long sphere (amber) */
+(function(){ const cv=document.getElementById("globeCanvas"); if(!cv) return;
+  const x=cv.getContext("2d"); let t0=performance.now();
+  function draw(now){ requestAnimationFrame(draw);
+    if(!cv.clientWidth) return;
+    if(cv.width!==cv.clientWidth*2){ cv.width=cv.clientWidth*2; cv.height=cv.clientHeight*2; }
+    const W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=Math.min(W,H)/2-2;
+    x.clearRect(0,0,W,H);
+    const rot=(now-t0)*0.0002;
+    const grad=x.createRadialGradient(cx-R*0.3,cy-R*0.3,R*0.1,cx,cy,R);
+    grad.addColorStop(0,"rgba(217,160,91,.30)"); grad.addColorStop(1,"rgba(217,160,91,.05)");
+    x.fillStyle=grad; x.beginPath(); x.arc(cx,cy,R,0,6.3); x.fill();
+    x.strokeStyle="rgba(217,160,91,.5)"; x.lineWidth=1.4;
+    for(let i=-2;i<=2;i++){ const ly=cy+i*R*0.38; const w=Math.sqrt(Math.max(0,R*R-(i*R*0.38)**2));
+      x.beginPath(); x.ellipse(cx,ly,w,w*0.18,0,0,6.3); x.stroke(); }
+    for(let i=0;i<6;i++){ const ph=rot+i*Math.PI/6; const ew=Math.abs(Math.cos(ph))*R;
+      x.globalAlpha=0.3+0.4*Math.abs(Math.cos(ph));
+      x.beginPath(); x.ellipse(cx,cy,ew,R,0,0,6.3); x.stroke(); }
+    x.globalAlpha=1;
+    x.strokeStyle="rgba(217,160,91,.55)"; x.lineWidth=2; x.beginPath(); x.arc(cx,cy,R,0,6.3); x.stroke();
+  }
+  draw(performance.now());
+})();
+
+/* ── the mask: a circle in screen space the galaxy shows through ── */
+let maskCx=0, maskCy=0, maskR=0;     // current (animated) circle
+let maskFrom=null, maskTo=null, maskT0=0, maskDur=0, masking=false;
+function circleRectCentre(el){ const r=el.getBoundingClientRect();
+  return { x:r.left+r.width/2, y:r.top+r.height/2, r:r.width/2 }; }
+function setMaskNow(c){ maskCx=c.x; maskCy=c.y; maskR=c.r; pushMask(); }
+function animMask(to, dur){ maskFrom={x:maskCx,y:maskCy,r:maskR}; maskTo=to; maskT0=performance.now(); maskDur=dur; }
+const ringfx=document.getElementById("ringfx");
+let ringOn=false;
+function pushMask(){
+  gl.style.setProperty("--mx", maskCx+"px");
+  gl.style.setProperty("--my", maskCy+"px");
+  gl.style.setProperty("--mr", maskR+"px");
+  if(ringOn){
+    ringfx.setAttribute("viewBox","0 0 "+innerWidth+" "+innerHeight);
+    ringfx.setAttribute("width",innerWidth); ringfx.setAttribute("height",innerHeight);
+    ringfx.innerHTML=`<circle cx="${maskCx.toFixed(1)}" cy="${maskCy.toFixed(1)}" r="${Math.max(0,maskR-1).toFixed(1)}"
+      fill="none" stroke="rgba(127,155,179,0.95)" stroke-width="2"
+      style="filter:drop-shadow(0 0 8px rgba(127,155,179,.5))"/>`;
+  } else ringfx.innerHTML="";
+}
+function showRing(on){ ringOn=on; if(!on) ringfx.innerHTML=""; }
+function enableMask(on){ gl.classList.toggle("masked", on); }
+function fullScreenRadius(cx,cy){ // radius that covers all four corners from (cx,cy)
+  return Math.max(Math.hypot(cx,cy), Math.hypot(innerWidth-cx,cy),
+                  Math.hypot(cx,innerHeight-cy), Math.hypot(innerWidth-cx,innerHeight-cy))+40; }
+function stepMask(){
+  if(maskTo){ const e=maskDur<=0?1:Math.min(1,(performance.now()-maskT0)/maskDur);
+    const k=1-Math.pow(1-e,3);
+    maskCx=maskFrom.x+(maskTo.x-maskFrom.x)*k;
+    maskCy=maskFrom.y+(maskTo.y-maskFrom.y)*k;
+    maskR =maskFrom.r+(maskTo.r-maskFrom.r)*k;
+    pushMask();
+    if(e>=1){ maskTo=null; if(maskR>=fullScreenRadius(maskCx,maskCy)-50) enableMask(false); }
+  } else if(masking){ // keep the mask glued to the porthole if it's parked there
+    const c=circleRectCentre(geocircleEl); maskCx=c.x; maskCy=c.y; maskR=c.r; pushMask();
+  }
+}
+
+/* ════════════════ STATE RESOLVER (T0–T5) ════════════════ */
+function resetBeatDOM(){
+  essayVis=0.0;
+  qline.classList.remove("in");
+  stopwatchWrap.classList.remove("in"); geoWrap.classList.remove("in");
+  stopwatchWrap.style.opacity=""; geoWrap.style.opacity=""; geoWrap.style.transition="";
+  ringfx.style.transition=""; ringfx.style.opacity="1";
+  geocircleEl.style.transition=""; geocircleEl.classList.add("measureonly");
+  lblGeo.style.transition=""; lblGeo.style.opacity="0";
+  worldOuter.style.display="none"; worldWrap.classList.remove("in");
+  worldWrap.style.transition=""; worldWrap.style.opacity="";
+  briefpanel.classList.remove("show");
+  showRing(false); maskTo=null; masking=false;
+}
+function geoC(){ return circleRectCentre(geocircleEl); }
+
+function applyState(t, fwd){
+  clearTimers();
+  if(t!==2) briefToken++;     // cancel any in-flight brief composition when leaving T2
+  resetBeatDOM();
+  elWindows.style.display="flex";
+  if(threeReady){ autoSpin=0.00075; }
+
+  // ── T0 · question → stopwatch → geometry circle (galaxy in miniature inside) ──
+  if(t===0){
+    if(threeReady){ galaxyShow(false); enableMask(false); }
+    camZT=148; GAL_X=0;
+    geocircleEl.classList.add("measureonly");   // SVG ring will draw the outline
+    if(fwd){
+      timers.push(setTimeout(()=>qline.classList.add("in"), 250));
+      timers.push(setTimeout(()=>{ stopwatchWrap.classList.add("in"); }, 3200));
+      timers.push(setTimeout(()=>{
+        geoWrap.classList.add("in");
+        // galaxy appears IN MINIATURE inside the circle: real galaxy, masked + far camera
+        if(threeReady){ galaxyShow(true); enableMask(true); masking=true;
+          camZT=300;                  // a recognizable CHUNK of the galaxy inside the porthole
+          const c=geoC(); setMaskNow(c); showRing(true); }
+        timers.push(setTimeout(()=>lblGeo.style.opacity="0.92", 700));
+      }, 6200));
+    } else {
+      qline.classList.add("in"); stopwatchWrap.classList.add("in"); geoWrap.classList.add("in");
+      lblGeo.style.opacity="0.92";
+      if(threeReady){ galaxyShow(true); enableMask(true); masking=true; camZT=300;
+        setMaskNow(geoC()); showRing(true); }
+    }
+    return;
+  }
+
+  // ── T1 · move toward the window: ring + mask grow, camera dollies in, galaxy grows ──
+  if(t===1){
+    initThree(); galaxyShow(true); GAL_X=0;
+    qline.classList.remove("in"); stopwatchWrap.classList.remove("in");
+    geoWrap.classList.add("in"); lblGeo.style.opacity="0";
+    enableMask(true); showRing(true);
+    const c=geoC();
+    if(fwd){
+      masking=false; setMaskNow(c); camZT=300;
+      // a beat showing the miniature galaxy, then dolly in + grow the window together
+      timers.push(setTimeout(()=>{
+        const cc=geoC();
+        animMask({x:cc.x,y:cc.y,r:fullScreenRadius(cc.x,cc.y)}, 3900);
+        camZT=148;                    // dolly in: galaxy grows as the window opens
+        // when the window has fully passed the screen edges, drop the ring + mask
+        timers.push(setTimeout(()=>{ showRing(false); elWindows.style.display="none"; }, 3900));
+      }, 1400));
+    } else {
+      masking=false; enableMask(false); showRing(false); camZT=148; elWindows.style.display="none";
+    }
+    return;
+  }
+
+  // ── T2 · the brief ──
+  if(t===2){
+    initThree(); galaxyShow(true); enableMask(false); showRing(false); masking=false;
+    camZT=148; GAL_X=34; briefpanel.classList.add("show");
+    if(fwd) runBrief(); else briefShowAll();
+    return;
+  }
+
+  // ── T3 · the galaxy dances alone; essay/humanities words surface ──
+  if(t===3){
+    initThree(); enableMask(false); showRing(false); masking=false;
+    camZT=148; GAL_X=0; briefpanel.classList.remove("show");
+    essayVis=0.46;                          // bring the humanities words up (set BEFORE galaxyShow)
+    galaxyShow(true);
+    if(fwd){
+      // give the labeled words an immediate, visible nudge, then keep dancing
+      settleStep(1.0, 1300);
+      const tick=()=>{ if(cur!==3) return; settleStep(0.9, 1300);
+        timers.push(setTimeout(tick, 1500)); };
+      timers.push(setTimeout(tick, 1500));
+    }
+    return;
+  }
+
+  // ── T4 · pull back into the window: ring + mask shrink in from the edges ──
+  if(t===4){
+    initThree(); galaxyShow(true); briefpanel.classList.remove("show"); GAL_X=0; camZT=148;
+    geoWrap.classList.add("in"); lblGeo.style.opacity="0";
+    enableMask(true); showRing(true);
+    const c=geoC();
+    if(fwd){
+      masking=false;
+      setMaskNow({x:c.x,y:c.y,r:fullScreenRadius(c.x,c.y)});  // start: we're inside (full screen)
+      animMask({x:c.x,y:c.y,r:c.r}, 3000);                   // shrink back to the porthole
+      timers.push(setTimeout(()=>{ masking=true; lblGeo.style.opacity="0.92"; }, 3100));
+    } else {
+      masking=true; setMaskNow(c); lblGeo.style.opacity="0.92";
+    }
+    return;
+  }
+
+  // ── T5 · the world: a globe, level with the geometry ──
+  if(t===5){
+    initThree(); galaxyShow(true); GAL_X=0; camZT=148;
+    geoWrap.classList.add("in"); lblGeo.style.opacity="0.92";
+    enableMask(true); masking=true; setMaskNow(geoC()); showRing(true);
+    // mirror the geometry circle's EXACT centre for the world globe
+    worldOuter.style.display="block";
+    positionWorldLevelWithGeometry();
+    if(fwd) timers.push(setTimeout(()=>worldWrap.classList.add("in"), 500));
+    else worldWrap.classList.add("in");
+    return;
+  }
+
+  // ── T6 · both fade together to black ──
+  if(t===6){
+    initThree();
+    geoWrap.classList.add("in"); lblGeo.style.opacity="0.92";
+    enableMask(true); masking=true; setMaskNow(geoC()); showRing(true);
+    worldOuter.style.display="block"; positionWorldLevelWithGeometry(); worldWrap.classList.add("in");
+    if(fwd){
+      // EVERYTHING fades together, same duration, to pure black.
+      const FADE=1600;
+      galaxyShow(false, 0.045);                         // galaxy + web dim out (still masked)
+      // force a consistent starting point, then fade BOTH wraps identically in the same frame
+      geoWrap.style.transition="none"; worldWrap.style.transition="none";
+      geoWrap.style.opacity="1"; worldWrap.style.opacity="1"; void geoWrap.offsetWidth;
+      const EASE="opacity "+FADE+"ms linear";
+      geoWrap.style.transition=EASE; worldWrap.style.transition=EASE; ringfx.style.transition=EASE;
+      geoWrap.style.opacity="0"; worldWrap.style.opacity="0"; ringfx.style.opacity="0";
+      // keep the mask ON the whole time so the galaxy NEVER spills full-screen;
+      // only after everything is black do we tear the mask down.
+      timers.push(setTimeout(()=>{ showRing(false); ringfx.style.opacity="1";
+        enableMask(false); masking=false; }, FADE+400));
+    } else {
+      galaxyShow(true); geoWrap.style.transition=""; geoWrap.style.opacity="1";
+      worldWrap.style.transition=""; worldWrap.style.opacity="1";
+      lblGeo.style.opacity="0.92"; ringfx.style.opacity="1";
+    }
+    return;
+  }
+}
+
+/* place the world globe so its CENTRE is exactly level with the geometry circle's centre,
+   mirrored to the stopwatch side of the screen. */
+function positionWorldLevelWithGeometry(){
+  const gc=geocircleEl.getBoundingClientRect();
+  const sw=stopwatchEl.getBoundingClientRect();
+  const csz=gc.width;
+  worldOuter.style.position="fixed"; worldOuter.style.inset="0"; worldOuter.style.zIndex="8";
+  worldOuter.style.pointerEvents="none";
+  const globe=document.getElementById("globe");
+  globe.style.width=csz+"px"; globe.style.height=csz+"px";
+  worldWrap.style.position="absolute";
+  // horizontal: centre the column on the stopwatch X
+  worldWrap.style.left=(sw.left+sw.width/2)+"px";
+  // vertical: put the wrap TOP so the globe's CENTRE == geometry circle centre.
+  // globe is the first child; its centre sits csz/2 below the wrap top.
+  const geoCentreY=gc.top+gc.height/2;
+  worldWrap.style.top=(geoCentreY - csz/2)+"px";
+  worldWrap.style.transform="translateX(-50%)";   // horizontal centre only
+}
+
+
+/* boot */
+setTimeout(()=>{ try{ initThree(); }catch(e){ console.error(e); } }, 600);
+paintChrome();
+applyState(0, true);   // fire T0's fade-in sequence on load
+</script>
+
+</body>
+</html>
