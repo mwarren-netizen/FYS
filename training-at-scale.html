@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training at Scale — FYS Module One</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --night:#07070d; --railbg:#0a0913; --ink:#eae4d3; --ink-dim:#9a937f;
+    --amber:#d9a05b; --slate:#7f9bb3; --rose:#c4798a;
+    --rail: clamp(290px, 28vw, 390px);
+    --serif: Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  body.clean{ --rail: 0px; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    background: radial-gradient(120% 90% at 60% 10%, #0b0a16 0%, var(--night) 60%, #050509 100%);
+    color:var(--ink); font-family:var(--serif); overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  #webgl{ position:fixed; inset:0; z-index:0; opacity:0; transition:opacity 1s ease; cursor:none; }
+  #webgl.on{ opacity:1; }
+  #field{ position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0; transition:opacity 1s ease; }
+  #field.on{ opacity:1; }
+  #title{ position:fixed; inset:0; z-index:2; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding-left:var(--rail);
+    opacity:0; pointer-events:none; transition:opacity .9s ease; }
+  #title.active{ opacity:1; }
+  #title .t{ font-size:clamp(38px, 6vw, 76px); font-weight:500; text-align:center; line-height:1.1; }
+  #title .t em{ font-style:italic; color:var(--amber); }
+  #title .sub{ margin-top:3vh; font-style:italic; color:var(--ink-dim); text-align:center;
+    font-size:clamp(14px,1.5vw,18px); max-width:560px; line-height:1.6; }
+  #titleStars{ position:fixed; inset:0; z-index:-1; opacity:.5; }
+
+  #rail{
+    position:fixed; left:0; top:0; bottom:0; width:var(--rail); z-index:10;
+    background:var(--railbg); border-right:1px solid rgba(234,228,211,.09);
+    transition:width .55s ease, opacity .45s ease; overflow:hidden;
+  }
+  body.clean #rail{ opacity:0; }
+  .card{
+    position:fixed; left:0; top:0; bottom:0; width:clamp(290px, 28vw, 390px); z-index:11;
+    display:flex; flex-direction:column; justify-content:center;
+    padding:6vh 34px 10vh; pointer-events:none;
+    opacity:0; transition:opacity .5s ease;
+  }
+  .card.active{ opacity:1; }
+  body.clean .card{ opacity:0 !important; }
+  .eyebrow{ font-family:var(--sans); font-size:10.5px; letter-spacing:.4em; text-transform:uppercase;
+    color:var(--amber); opacity:.9; margin-bottom:22px; }
+  .cap{ font-size:clamp(13.5px, 1.05vw, 16px); line-height:1.72; color:var(--ink); }
+  .cap::before{ content:""; display:block; width:46px; height:1px; margin-bottom:18px;
+    background:linear-gradient(90deg, var(--amber), transparent); }
+  .cap p{ margin-bottom:1em; }
+  .cap b{ color:var(--amber); font-weight:500; }
+  .cap i.sl{ color:var(--slate); font-style:normal; }
+  .cap i.rs{ color:var(--rose); font-style:normal; }
+  .cap .plain{ color:var(--ink-dim); font-size:.86em; display:block; margin-top:.8em; font-style:italic; }
+
+  .ui{ transition:opacity .45s ease; }
+  body.clean .ui{ opacity:0 !important; pointer-events:none !important; }
+  #dots{ position:fixed; bottom:2.1vh; left:calc(var(--rail) + (100vw - var(--rail))/2);
+    transform:translateX(-50%); display:flex; gap:5px; z-index:40; transition:left .55s; }
+  #dots button{ width:5px; height:5px; border-radius:50%; border:none; cursor:pointer;
+    background:rgba(234,228,211,.18); padding:0; }
+  #dots button.on{ background:var(--amber); box-shadow:0 0 8px rgba(217,160,91,.7); }
+  #dots button:focus-visible{ outline:1px solid var(--amber); outline-offset:3px; }
+  #hint{ position:fixed; bottom:2vh; right:2vw; z-index:40; font-family:var(--sans);
+    font-size:10px; letter-spacing:.14em; color:var(--ink-dim); text-transform:uppercase; }
+  #tnum{ position:fixed; bottom:2vh; right:2vw; transform:translateY(-2.4em); z-index:40;
+    font-family:var(--sans); font-size:11px; letter-spacing:.22em; color:var(--amber); }
+  #capbtn{ position:fixed; bottom:1.6vh; left:1.4vw; z-index:60; font-family:var(--sans);
+    font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-dim);
+    background:rgba(10,9,19,.6); border:1px solid rgba(234,228,211,.18); border-radius:99px;
+    padding:7px 13px; cursor:pointer; transition:opacity .4s, color .3s, border-color .3s; }
+  #capbtn:hover{ color:var(--ink); border-color:rgba(234,228,211,.4); }
+  body.clean #capbtn{ opacity:.12; } body.clean #capbtn:hover{ opacity:1; }
+  #capbtn:focus-visible{ outline:1px solid var(--amber); outline-offset:2px; }
+  .navzone{ position:fixed; top:0; bottom:8vh; width:7vw; z-index:30; border:none;
+    background:none; cursor:pointer; color:transparent; font-size:30px; font-family:var(--serif); }
+  .navzone:hover{ color:rgba(234,228,211,.3); }
+  #zprev{ left:var(--rail); transition:left .55s; } #znext{ right:0; }
+
+  @media (max-width:760px){
+    :root{ --rail: clamp(220px, 38vw, 290px); }
+    .card{ width:clamp(220px, 38vw, 290px); padding:4vh 20px 8vh; }
+    .cap{ font-size:12px; line-height:1.6; }
+  }
+</style>
+</head>
+<body>
+
+<div id="webgl" aria-label="Word map. Drag to rotate once it becomes three-dimensional."></div>
+<canvas id="field"></canvas>
+<canvas id="titleStars"></canvas>
+
+<div id="title" class="active">
+  <h1 class="t">Training,<br>at <em>Scale</em></h1>
+  <p class="sub">From a deluge of text<br>to a map of meaning.</p>
+</div>
+
+<!-- ═══════════ CAPTION CARDS · the transition library (T0–T24) ═══════════ -->
+<div id="cards">
+  <div class="card"><div class="eyebrow">T0 · Title</div>
+    <div class="cap"><p><b>→</b> and <b>←</b> step through numbered transitions, one per phrase — like animation clicks in PowerPoint.</p>
+    <p><b>C</b> collapses this panel. <b>R</b> replays the current transition.</p>
+    <p>Drag the map, once it has depth.</p></div></div>
+
+  <div class="card"><div class="eyebrow">T1 · The deluge</div>
+    <div class="cap"><p>"Autocomplete trains on something about the size of a pretty big spreadsheet.</p>
+    <p>But large language models are trained on <b>terabytes</b> of data scraped from the internet: novels, Reddit threads, medical journals, legal briefs, arguments on Twitter, bad poetry on Tumblr, brilliant philosophy in academic journals."</p>
+    <span class="plain">Legible text at the top; one very slow zoom out begins here.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T2 · Looking for correlations</div>
+    <div class="cap"><p>"You take all that data and — just like with the autocomplete spreadsheet — you go looking for correlations."</p></div></div>
+
+  <div class="card"><div class="eyebrow">T3 · New York pairs with City</div>
+    <div class="cap"><p>"<b>New York</b> pairs with <b>City</b>."</p>
+    <span class="plain">The zoom freezes wherever it is. Only genuine co-occurrences light up.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T4 · The enormous table</div>
+    <div class="cap"><p>"But since you have so much data, you can get back this enormous table of correlations. That means you can find subtler connections."</p>
+    <span class="plain">More real co-occurrences ignite: bridge–river, storm–rain, moon–night, flour–salt.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T5 · The bright idea</div>
+    <div class="cap"><p>"And someone had the bright idea: what if we put these correlations on a <em>map</em>?"</p>
+    <span class="plain">A dark, empty field. Just for a second.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T6 · A point in space</div>
+    <div class="cap"><p>"Give each word a <em>point in space</em>."</p>
+    <span class="plain">The point is the data. "king" is just a label for the viewers.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T7 · A number…</div>
+    <div class="cap"><p>"What if we indicate how 'close' words are with a number —"</p></div></div>
+
+  <div class="card"><div class="eyebrow">T8 · …a kind of distance…</div>
+    <div class="cap"><p>"— a kind of <em>distance</em> —"</p></div></div>
+
+  <div class="card"><div class="eyebrow">T9 · …closer is closer</div>
+    <div class="cap"><p>"— denoted by a number, so that closer correlations are actually <em>closer</em>?"</p></div></div>
+
+  <div class="card"><div class="eyebrow">T10 · The same distance</div>
+    <div class="cap"><p>"When you do that, you see not only that <b>king</b> correlates with <b>man</b> — but that it correlates <em>in roughly the same way</em>, separated by the same distance, that <b>queen</b> correlates with <b>woman</b>."</p></div></div>
+
+  <div class="card"><div class="eyebrow">T11 · Every word gets placed</div>
+    <div class="cap"><p>And king, queen, man, and woman aren't special. Every word in the data gets placed on the map.</p>
+    <span class="plain">Suggested narration — no transcript line lands here yet.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T12–13 · Hidden everywhere</div>
+    <div class="cap"><p>And look — there's <i class="sl">Tokyo</i>, sitting by <i class="sl">Japan</i> the way <i class="sl">Paris</i> sits by <i class="sl">France</i> and <i class="sl">Rome</i> sits by <i class="sl">Italy</i>. A different distance, in a different direction — but the same trick.</p>
+    <span class="plain">Suggested narration — no transcript line lands here yet.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T14 · All over the place</div>
+    <div class="cap"><p><i class="rs">King</i> to <i class="rs">prince</i>, <i class="rs">queen</i> to <i class="rs">princess</i>, <i class="rs">man</i> to <i class="rs">son</i>, <i class="rs">woman</i> to <i class="rs">daughter</i>… these correlations are <em>all over the place</em>.</p>
+    <span class="plain">Suggested narration — no transcript line lands here yet.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T15 · The crowded page</div>
+    <div class="cap"><p>But look how crowded the page is getting. Every word needs to sit near everything it's related to — and a flat sheet keeps running out of directions. Two dimensions is a crude way to map this many relationships.</p>
+    <span class="plain">Suggested narration — no transcript line lands here yet. The field genuinely crowds; the third dimension arrives as relief.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T16 · The reveal</div>
+    <div class="cap"><p>"To give you a sense of the scale —"</p>
+    <span class="plain">The flat map was never flat.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T17 · Wikipedia</div>
+    <div class="cap"><p>"— the first model of ChatGPT was trained on data roughly the size of <b>Wikipedia</b>."</p></div></div>
+
+  <div class="card"><div class="eyebrow">T18 · The Library of Congress</div>
+    <div class="cap"><p>"The fourth model surpassed the entire <b>Library of Congress</b> — and we don't even know how big the latest fifth model is."</p>
+    <span class="plain">≈ a few hundred Wikipedias of plain text, by the standard estimate — sourcing in chat.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T19 · Everything we've written</div>
+    <div class="cap"><p>"When you talk to ChatGPT, you are, in a meaningful sense, interacting with a significant portion of <em>everything that human beings have ever written</em>."</p>
+    <span class="plain">Let it linger.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T20 · Hundreds of dimensions</div>
+    <div class="cap"><p>"Now imagine doing that not just in two dimensions, not just in three, but in <b>hundreds of dimensions at once</b> — in a space so complex that humans can't actually visualize it, but computers have no problem keeping track of."</p>
+    <span class="plain">One long, slow, continuous zoom from here to T23.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T21 · Every other word</div>
+    <div class="cap"><p>"And instead of just mapping one word to another, map each word to <em>every other word</em> in the corpus."</p>
+    <span class="plain">A galaxy of relationships, not just stars.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T22 · A trillion little weights</div>
+    <div class="cap"><p>"A million words in English, each mapped to a million others — that's a <b>trillion</b> little weights, just for one language."</p></div></div>
+
+  <div class="card"><div class="eyebrow">T23 · Where every word should live</div>
+    <div class="cap"><p>"You feed the model all that training data, and you say: figure out where every word should live, based on everything it tends to appear near, across every document we've given you."</p></div></div>
+
+  <div class="card"><div class="eyebrow">T24 · Something magic</div>
+    <div class="cap"><p>"When you do that, something magic happens. You get this unimaginably complex map of the relationship <em>all</em> the words have to one another. And at that level of complexity, patterns start to emerge that don't just look like statistics — they look like <b>meaning</b>. Or at least the statistical shadow that our meanings cast."</p>
+    <span class="plain">The web of weights dissolves into structure. Widest frame of the piece.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T25 · At scale</div>
+    <div class="cap"><p>"That's what training looks like when you do it at scale."</p>
+    <span class="plain">Grab the sky and look around the clusters.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T26 · The echo</div>
+    <div class="cap"><p>"A geometry that echoes the shape of human concepts."</p>
+    <span class="plain">The names were ours. They fade — and the shapes stay. The spin eases to a crawl.</span></div></div>
+
+  <div class="card"><div class="eyebrow">T27 · Black</div>
+    <div class="cap"><span class="plain">The remnants go first, then the stars. The orbs hold a moment — and follow.</span></div></div>
+</div>
+
+<nav id="dots" class="ui" aria-label="transitions"></nav>
+<div id="tnum" class="ui">T0</div>
+<div id="hint" class="ui">→ next · ← back · C panel · R replay</div>
+<button id="capbtn" aria-label="toggle caption panel">Aa · panel</button>
+<button class="navzone ui" id="zprev" aria-label="previous">‹</button>
+<button class="navzone ui" id="znext" aria-label="next">›</button>
+
+<script>
+"use strict";
+/* ════════════════ UTILITIES ════════════════ */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0;
+  let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t;
+  return ((t^t>>>14)>>>0)/4294967296; }; }
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function railWTarget(){ return document.body.classList.contains("clean") ? 0
+  : Math.min(Math.max(290, innerWidth*0.28), 390); }
+let timers=[];
+function clearTimers(){ timers.forEach(clearTimeout); timers=[]; }
+function after(ms,fn){ timers.push(setTimeout(fn, reduceMotion?Math.min(ms,150):ms)); }
+
+/* ════════════════ TRANSITION MANAGER · T0–T24 ════════════════ */
+const NT=28;
+const CARDMAP=[0,1,2,3,4,5,6,7,8,9,10,11,12,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26];
+const cards=[...document.querySelectorAll(".card")];
+let cur=0;
+const dots=document.getElementById("dots");
+for(let i=0;i<NT;i++){ const b=document.createElement("button");
+  b.addEventListener("click",()=>goTo(i)); b.setAttribute("aria-label","T"+i);
+  dots.appendChild(b); }
+function paintChrome(){
+  [...dots.children].forEach((d,i)=>d.classList.toggle("on",i===cur));
+  cards.forEach((c,i)=>c.classList.toggle("active", i===CARDMAP[cur]));
+  document.getElementById("tnum").textContent="T"+cur;
+  document.getElementById("title").classList.toggle("active", cur===0);
+  document.getElementById("field").classList.toggle("on", cur>=1 && cur<=4);
+  document.getElementById("webgl").classList.toggle("on", cur>=5);
+}
+function goTo(i){
+  if(i<0||i>=NT||i===cur) return;
+  const fwd=(i===cur+1);
+  clearTimers();
+  cur=i;
+  applyState(cur, fwd);
+  paintChrome();
+}
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight"||e.key===" "){ e.preventDefault(); goTo(cur+1); }
+  else if(e.key==="ArrowLeft"){ e.preventDefault(); goTo(cur-1); }
+  else if(e.key==="c"||e.key==="C"){ toggleRail(); }
+  else if(e.key==="r"||e.key==="R"){ clearTimers(); applyState(cur,true); }
+});
+document.getElementById("znext").addEventListener("click",()=>goTo(cur+1));
+document.getElementById("zprev").addEventListener("click",()=>goTo(cur-1));
+function toggleRail(){
+  document.body.classList.toggle("clean");
+  document.getElementById("capbtn").textContent =
+    document.body.classList.contains("clean") ? "Aa · hidden" : "Aa · panel";
+}
+document.getElementById("capbtn").addEventListener("click",toggleRail);
+
+/* ════════════════ TITLE STARS ════════════════ */
+(function(){
+  const c=document.getElementById("titleStars"), x=c.getContext("2d");
+  function draw(){ c.width=innerWidth; c.height=innerHeight; x.clearRect(0,0,c.width,c.height);
+    const r=mulberry32(11);
+    for(let i=0;i<160;i++){ x.fillStyle=`rgba(234,228,211,${r()*0.5+0.06})`;
+      x.beginPath(); x.arc(r()*c.width, r()*c.height, r()*1.1+0.2, 0, 7); x.fill(); } }
+  draw(); addEventListener("resize",draw);
+})();
+
+/* ════════════════════════════════════════════════════════════
+   THE TEXT FIELD (T1–T4)
+   Legible at the top of T1; one continuous slow zoom that stops
+   at T3. Highlights appear ONLY where a pair genuinely co-occurs
+   within a fragment.
+   ════════════════════════════════════════════════════════════ */
+const SNIPPETS=[
+ ["the rain did not stop for three days, and still she waited","novels","#eae4d3"],
+ ["after the storm, the rain kept its own counsel for a week","novels","#eae4d3"],
+ ["the night was clear and the moon entirely unreasonable","novels","#eae4d3"],
+ ["no other city moves like New York in October","novels","#eae4d3"],
+ ["New York keeps the city lights on out of habit","novels","#eae4d3"],
+ ["they rebuilt the bridge, but the river had moved on","novels","#eae4d3"],
+ ["he closed the gate behind him and never spoke of it again","novels","#eae4d3"],
+ ["chapter one: the sea remembers what the shore forgets","novels","#eae4d3"],
+ ["she counted the lighthouses until the coast ran out","novels","#eae4d3"],
+ ["it was his mother's watch, and it kept someone else's time","novels","#eae4d3"],
+ ["the orchard had gone wild in the years they were away","novels","#eae4d3"],
+ ["nobody in town could say when the bridge over the river had burned","novels","#eae4d3"],
+ ["the letter arrived forty years too late to matter","novels","#eae4d3"],
+ ["winter came early the year the mill closed","novels","#eae4d3"],
+ ["he learned to whistle the summer his brother left for New York","novels","#eae4d3"],
+ ["the dog waited at the station long after the trains stopped","novels","#eae4d3"],
+ ["every map she drew left out the road home","novels","#eae4d3"],
+ ["EDIT: thanks for the gold, kind stranger","Reddit","#d9a05b"],
+ ["OP is definitely lying, source: I was the bus driver","Reddit","#d9a05b"],
+ ["first time in the city? New York will let you know","Reddit","#d9a05b"],
+ ["this belongs in r/mildlyinteresting at best","Reddit","#d9a05b"],
+ ["can confirm, am electrician, do NOT do this","Reddit","#d9a05b"],
+ ["INFO: why was the lasagna in the bathroom in the first place","Reddit","#d9a05b"],
+ ["downvoted for the truth, classic","Reddit","#d9a05b"],
+ ["NTA, but your roommate certainly is","Reddit","#d9a05b"],
+ ["underrated comment right here, take my upvote","Reddit","#d9a05b"],
+ ["patients presenting with acute onset should be evaluated for","medical journals","#7f9bb3"],
+ ["a randomized double-blind trial (n = 412) found no significant","medical journals","#7f9bb3"],
+ ["contraindicated in patients with a history of","medical journals","#7f9bb3"],
+ ["symptoms typically resolve within seven to ten days","medical journals","#7f9bb3"],
+ ["the cohort was followed for a median of 6.2 years","medical journals","#7f9bb3"],
+ ["adverse events were mild and self-limiting","medical journals","#7f9bb3"],
+ ["hereinafter referred to as the Party of the First Part","legal briefs","#9a937f"],
+ ["the appellant contends that the lower court erred in","legal briefs","#9a937f"],
+ ["notwithstanding any provision to the contrary","legal briefs","#9a937f"],
+ ["the parties agree to binding arbitration in the city, under New York law","legal briefs","#9a937f"],
+ ["exhibit C is incorporated herein by reference","legal briefs","#9a937f"],
+ ["such consent shall not be unreasonably withheld","legal briefs","#9a937f"],
+ ["ratio + you fell off + the math is mathing","Twitter","#c4798a"],
+ ["nobody: / me at 3am:","Twitter","#c4798a"],
+ ["this site is free and look what we do with it","Twitter","#c4798a"],
+ ["no city argues with itself quite like New York","Twitter","#c4798a"],
+ ["New York City never apologizes for the noise","Twitter","#c4798a"],
+ ["the storm took the power; the rain stayed for the encore","Twitter","#c4798a"],
+ ["deleting this app for my mental health (back tomorrow)","Twitter","#c4798a"],
+ ["normalize logging off mid-argument","Twitter","#c4798a"],
+ ["hot take: cereal is soup adjacent","Twitter","#c4798a"],
+ ["and they were ROOMMATES","Tumblr","#c4798a"],
+ ["my heart is a haunted house and you left the door open","Tumblr","#c4798a"],
+ ["do you ever just lie on the floor about it","Tumblr","#c4798a"],
+ ["the moon owns the night and knows it","Tumblr","#c4798a"],
+ ["tagging this as #poetry because it hurt","Tumblr","#c4798a"],
+ ["the moon is for everyone, that's the whole point","Tumblr","#c4798a"],
+ ["reblog if you'd survive the victorian era (you wouldn't)","Tumblr","#c4798a"],
+ ["the manifest image of man-in-the-world","philosophy","#d9a05b"],
+ ["it does not follow that the predicate refers","philosophy","#d9a05b"],
+ ["to grasp a concept is to master the use of a word","philosophy","#d9a05b"],
+ ["the space of reasons is not the space of causes","philosophy","#d9a05b"],
+ ["suppose, for reductio, that meanings are in the head","philosophy","#d9a05b"],
+ ["qualia, if there are any, are notoriously shy","philosophy","#d9a05b"],
+ ["officials confirmed the bridge will reopen by spring","news","#eae4d3"],
+ ["markets steadied after a turbulent morning in New York","news","#eae4d3"],
+ ["residents described the storm as the worst in decades","news","#eae4d3"],
+ ["the storm has passed, but rain lingers in the forecast","news","#eae4d3"],
+ ["the City Council voted 7–2 to approve the measure","news","#eae4d3"],
+ ["a spokesperson declined to comment on the merger","news","#eae4d3"],
+ ["fold gently until just combined; do not overmix","recipes","#9a937f"],
+ ["INGREDIENTS: 2 cups flour, a pinch of salt, your undivided","recipes","#9a937f"],
+ ["whisk the flour with the salt before anything else","recipes","#9a937f"],
+ ["simmer until reduced by half, about twenty minutes","recipes","#9a937f"],
+ ["rest the dough overnight, somewhere cool and quiet","recipes","#9a937f"],
+ ["season with salt to taste, then season a little more","recipes","#9a937f"],
+ ["three stars: great location, haunted probably","reviews","#7f9bb3"],
+ ["every city has a rhythm; New York's is a sprint","reviews","#7f9bb3"],
+ ["the city was loud, but New York loud is its own dialect","reviews","#7f9bb3"],
+ ["they filmed it in New York, but any city would have done","reviews","#7f9bb3"],
+ ["arrived broken, seller very apologetic, five stars","reviews","#7f9bb3"],
+ ["the second album is better and I'm tired of pretending","reviews","#7f9bb3"],
+ ["service was slow but the soup forgave everything","reviews","#7f9bb3"],
+ ["recall from chapter two that the derivative measures change","textbooks","#9a937f"],
+ ["the Treaty of Westphalia fundamentally reshaped the map of Europe","textbooks","#9a937f"],
+ ["photosynthesis converts light into chemical energy","textbooks","#9a937f"],
+ ["a city is best modeled as a network of flows","textbooks","#9a937f"],
+ ["the river deposits its sediment where the bridge slows the current","textbooks","#9a937f"],
+ ["per my last email, the deadline has not moved","emails","#eae4d3"],
+ ["just circling back on this before the weekend","emails","#eae4d3"],
+ ["please find attached the revised agenda","emails","#eae4d3"],
+ ["happy to hop on a quick call if easier","emails","#eae4d3"],
+ ["adding Sarah, who owns the city accounts, for visibility","emails","#eae4d3"],
+ ["bumping this thread because it deserves answers","forums","#9a937f"],
+ ["the wiki says otherwise but the wiki is wrong","forums","#9a937f"],
+ ["works on my machine","forums","#9a937f"],
+ ["closing as duplicate; see pinned post","forums","#9a937f"],
+ ["the moon rose late and the night barely noticed","forums","#9a937f"]
+];
+const PAIRS=[["new york","city"],["bridge","river"],["storm","rain"],["moon","night"],["flour","salt"]];
+const ALL_NEEDLES=[...new Set(PAIRS.flat())];
+function hitsIn(text, nd){
+  const re=new RegExp("\\b"+nd.replace(" ","\\s")+"('s)?\\b","g");
+  let m, list=[]; const lower=text.toLowerCase();
+  while((m=re.exec(lower))!==null) list.push([m.index, m[0].length]);
+  return list;
+}
+/* snippets in which each pair genuinely co-occurs */
+const CO_SNIPS=PAIRS.map(([a,b])=>SNIPPETS.filter(s=>hitsIn(s[0],a).length&&hitsIn(s[0],b).length));
+
+const T1_SUBJ=["the committee","the harbor","my brother","the model","a stranger","the harvest",
+ "the algorithm","her letter","the jury","the chorus","a tourist","the winter","the engine",
+ "the parliament","an old friend","the lighthouse","the festival","the archive"];
+const T1_VERB=["remembers","ignores","outlived","predicted","misplaced","rehearses","survived",
+ "reconsiders","abandoned","welcomes","postponed","measures","forgives","inherits"];
+const T1_OBJ=["the flood","its own ending","the quiet streets","every objection","the morning express",
+ "a borrowed map","the last harvest","an honest answer","the long thaw","the first draft",
+ "the back roads","its reflection","the open door","a familiar song"];
+const T2_VOCAB=("bread music doctor window seven blue mountain letter horse market ocean glass "+
+ "fire garden clock ship stone gold dream door bird paper voice wheel song iron cloud "+
+ "field lamp chair north story hands sugar wire moss key grain tide chalk rope spark fern "+
+ "silver oak crow bell ash reed pine wool flint moth dew").split(" ");
+
+const field=document.getElementById("field"), fxc=field.getContext("2d");
+function sizeField(){
+  const dpr=Math.min(devicePixelRatio||1,2);
+  field.width=innerWidth*dpr; field.height=innerHeight*dpr;
+  field.style.width=innerWidth+"px"; field.style.height=innerHeight+"px";
+  fxc.setTransform(dpr,0,0,dpr,0,0);
+}
+sizeField(); addEventListener("resize",sizeField);
+
+let frags=[], snipQueue=[], t1used=new Set(), zoom=1.55, zoomRun=false, fieldOn=false, fieldT0=0, lastT=0;
+const rrand=mulberry32(99 + (Date.now()%89));
+function takeSnip(){
+  if(!snipQueue.length){
+    snipQueue=SNIPPETS.map((_,i)=>i);
+    for(let i=snipQueue.length-1;i>0;i--){ const j=Math.floor(rrand()*(i+1));
+      [snipQueue[i],snipQueue[j]]=[snipQueue[j],snipQueue[i]]; }
+  }
+  return SNIPPETS[snipQueue.shift()];
+}
+function t1text(){
+  for(let k=0;k<40;k++){
+    const i=Math.floor(rrand()*T1_SUBJ.length), j=Math.floor(rrand()*T1_VERB.length),
+          l=Math.floor(rrand()*T1_OBJ.length), key=i+"-"+j+"-"+l;
+    if(!t1used.has(key)){ if(t1used.size>1800) t1used.clear(); t1used.add(key);
+      return T1_SUBJ[i]+" "+T1_VERB[j]+" "+T1_OBJ[l]; }
+  }
+  return T1_SUBJ[0]+" "+T1_VERB[0]+" "+T1_OBJ[0];
+}
+function t2text(){
+  const n=4+Math.floor(rrand()*4); let s=[];
+  for(let i=0;i<n;i++) s.push(T2_VOCAB[Math.floor(rrand()*T2_VOCAB.length)]);
+  return s.join(" ");
+}
+function fbd(){ const L=railWTarget()+40; return {L, R:innerWidth-30, W:innerWidth-30-L}; }
+function computeHits(f){
+  f.hits={}; f.copairs=[];
+  for(const nd of ALL_NEEDLES){
+    const list=hitsIn(f.text, nd);
+    if(list.length) f.hits[nd]=list;
+  }
+  PAIRS.forEach(([a,b],i)=>{ if(f.hits[a]&&f.hits[b]) f.copairs.push(i); });
+}
+function setSnip(f, snip){
+  f.text=snip[0]; f.tag=snip[1]; f.color=snip[2]; computeHits(f);
+}
+function assignText(f){
+  if(f.tier===0){ setSnip(f, takeSnip()); }
+  else if(f.tier===1){ f.text=t1text(); f.tag=null; f.color="#bdb6a3"; computeHits(f); }
+  else { f.text=t2text(); f.tag=null; f.color="#8d8775"; computeHits(f); }
+}
+function spawnFrag(tier, anywhere){
+  const b=fbd();
+  const f={ tier, x:b.L+rrand()*b.W,
+    y: anywhere ? rrand()*innerHeight : -30-rrand()*innerHeight*0.8,
+    v: tier===0 ? 0.55+rrand()*0.8 : tier===1 ? 0.35+rrand()*0.5 : 0.2+rrand()*0.35,
+    base: tier===0 ? 14+rrand()*6 : tier===1 ? 11+rrand()*3 : 9+rrand()*2,
+    ws: tier===0 ? 1 : tier===1 ? 0.55 : 0.3,
+    op: tier===0 ? 0.45+rrand()*0.45 : tier===1 ? 0.3+rrand()*0.3 : 0.18+rrand()*0.2,
+    born: performance.now() };
+  assignText(f);
+  return f;
+}
+function recycle(f){ const b=fbd();
+  f.y=-30-rrand()*160; f.x=b.L+rrand()*b.W; f.born=performance.now(); assignText(f); }
+function resetField(){ frags=[]; zoom=reduceMotion?0.85:1.55;
+  for(let i=0;i<16;i++) frags.push(spawnFrag(0, true)); }
+/* guarantee that genuinely co-occurring carriers are on screen */
+function ensureCarriers(pairIdx, n){
+  const b=fbd();
+  const visible=frags.filter(f=>f.tier===0 && f.copairs.includes(pairIdx)
+    && f.y>-60 && f.y<innerHeight*0.95).length;
+  let need=n-visible;
+  if(need<=0) return;
+  const inUse=new Set(frags.map(f=>f.text));
+  for(const snip of CO_SNIPS[pairIdx]){
+    if(need<=0) break;
+    if(inUse.has(snip[0])) continue;
+    const f=spawnFrag(0, true);
+    f.y=innerHeight*(0.15+rrand()*0.55); f.x=b.L+rrand()*b.W*0.9;
+    setSnip(f, snip); f.born=performance.now();
+    frags.push(f); inUse.add(snip[0]); need--;
+  }
+}
+function fieldLoop(ts){
+  if(cur<1||cur>4){ fieldOn=false; return; }
+  const dt=Math.min(0.05,(ts-lastT)/1000||0.016); lastT=ts;
+  if(zoomRun && !reduceMotion){ zoom=Math.max(0.58, zoom-0.026*dt); }
+  const want=[ zoom>1.2?16:24, zoom<1.15?70:0, zoom<0.75?160:0 ];
+  const counts=[0,0,0]; for(const f of frags) counts[f.tier]++;
+  for(let tier=0;tier<3;tier++){
+    let need=want[tier]-counts[tier], add=0;
+    while(need>0 && add<3){ frags.push(spawnFrag(tier,true)); need--; add++; }
+  }
+  fxc.clearRect(0,0,innerWidth,innerHeight);
+  const cx=fbd().L+fbd().W/2, cy=innerHeight/2;
+  const now=performance.now();
+  const fade=Math.min(1,(now-fieldT0)/900);
+  const activePairs = cur>=4 ? PAIRS.map((_,i)=>i) : (cur===3 ? [0] : []);
+  const threads=[];
+  for(const f of frags){
+    if(!reduceMotion){ f.y+=f.v*(0.4+zoom*0.8); if(f.y>innerHeight+40) recycle(f); }
+    const px=cx+(f.x-cx)*(0.55+zoom*0.45), py=cy+(f.y-cy)*(0.55+zoom*0.45);
+    const sz=Math.max(2.2, f.base*(0.3+f.ws*0.7)*(0.25+zoom*0.95));
+    const bornA=Math.min(1,(now-f.born)/700);
+    fxc.font=`italic ${sz}px Palatino, Georgia, serif`;
+    fxc.globalAlpha=f.op*fade*bornA;
+    fxc.fillStyle=f.color;
+    fxc.fillText(f.text, px, py);
+    if(f.tier===0 && f.tag && sz>9){
+      fxc.font=`${Math.max(6,sz*0.55)}px ui-sans-serif, system-ui`;
+      fxc.globalAlpha=0.5*fade*bornA;
+      fxc.fillStyle="#9a937f";
+      fxc.fillText(f.tag.toUpperCase(), px, py+sz*0.95);
+    }
+    /* highlight ONLY pairs that genuinely co-occur within this fragment */
+    if(sz>5 && activePairs.length && f.copairs.length){
+      fxc.font=`italic ${sz}px Palatino, Georgia, serif`;
+      for(const pi of f.copairs){
+        if(!activePairs.includes(pi)) continue;
+        const [a,b]=PAIRS[pi];
+        const strong=(pi===0);
+        const ends={};
+        for(const nd of [a,b]){
+          for(const [idx,len] of f.hits[nd]){
+            const pre=fxc.measureText(f.text.slice(0,idx)).width;
+            const wtxt=f.text.slice(idx, idx+len);
+            fxc.save();
+            fxc.shadowColor="#d9a05b"; fxc.shadowBlur=strong?12:8;
+            fxc.globalAlpha=Math.min(1,(f.op*fade+(strong?0.5:0.34))*bornA);
+            fxc.fillStyle=strong?"#d9a05b":"#cfa066";
+            fxc.fillText(wtxt, px+pre, py);
+            fxc.restore();
+            if(!ends[nd]) ends[nd]=[px+pre+fxc.measureText(wtxt).width/2, py-sz*0.35];
+          }
+        }
+        if(ends[a]&&ends[b]) threads.push([ends[a],ends[b],strong,bornA]);
+      }
+    }
+  }
+  if(threads.length){
+    const pulse=0.2+0.13*Math.sin(now/450);
+    fxc.lineWidth=1;
+    for(const [a,b,strong,bA] of threads){
+      fxc.strokeStyle=`rgba(217,160,91,${(strong?pulse+0.18:pulse)*bA})`;
+      fxc.beginPath(); fxc.moveTo(a[0],a[1]);
+      fxc.quadraticCurveTo((a[0]+b[0])/2,(a[1]+b[1])/2-26,b[0],b[1]); fxc.stroke();
+    }
+  }
+  fxc.globalAlpha=1;
+  requestAnimationFrame(fieldLoop);
+}
+function wakeField(){ if(!fieldOn){ fieldOn=true; fieldT0=performance.now(); lastT=0;
+  requestAnimationFrame(fieldLoop); } }
+
+/* ════════════════════════════════════════════════════════════
+   THE MAP (T5–T24) — stars are the data; words are labels.
+   ════════════════════════════════════════════════════════════ */
+const VG=[-3,-15,3], VGEN=[-4,9,7], VC=[-6,6,-5];
+function add3(a,b){ return [a[0]+b[0],a[1]+b[1],a[2]+b[2]]; }
+const Pking=[-30,9,-4], Pman=[18,-12,4], Pparis=[-4,25,-14], Pbro=[26,-21,12], Phis=[0,-20,-2];
+const POS={
+  king:Pking, queen:add3(Pking,VG), prince:add3(Pking,VGEN), princess:add3(add3(Pking,VG),VGEN),
+  ruled:[-44,6,-2], kingdom:[-27,3,-13], castle:[-38,-1,-9],
+  man:Pman, woman:add3(Pman,VG), son:add3(Pman,VGEN), daughter:add3(add3(Pman,VG),VGEN),
+  brother:Pbro, sister:add3(Pbro,VG), his:Phis, her:add3(Phis,VG),
+  told:[30,-4,-3], story:[35,-10,7],
+  paris:Pparis, france:add3(Pparis,VC),
+  rome:add3(Pparis,[14,-6,-8]), italy:add3(add3(Pparis,[14,-6,-8]),VC),
+  tokyo:add3(Pparis,[19,9,5]),  japan:add3(add3(Pparis,[19,9,5]),VC),
+  london:add3(Pparis,[-15,-3,9]), england:add3(add3(Pparis,[-15,-3,9]),VC),
+  capital:[2,17,-20], train:[5,29,-3],
+  river:[-31,-27,9], road:[-40,-19,-4],
+  /* the crowd: wedged into the gaps in xy, but spread in z — depth arrives as relief */
+  throne:[-35,4,9], crown:[-26,13,-14], court:[-41,12,8], palace:[-36,-9,11],
+  uncle:[22,-16,-9], aunt:[19,-25,-12], cousin:[28,-28,3], child:[12,-8,-8], family:[31,-15,16],
+  harbor:[9,23,6], border:[-9,19,-6], island:[16,28,-16], village:[-22,28,4], street:[1,31,9],
+  morning:[-12,-5,13], summer:[6,5,-15], evening:[-2,-12,16], stranger:[-18,-14,-11]
+};
+const G_CROWD=["throne","crown","court","palace","uncle","aunt","cousin","child","family",
+  "harbor","border","island","village","street","morning","summer","evening","stranger"];
+const ALL_WORDS=Object.keys(POS);
+const G_FILL=["paris","france","tokyo","japan","rome","italy","son","daughter",
+  "prince","princess","his","her","river","road","brother","sister"];
+const G_LATER=ALL_WORDS.filter(w=>!["king","queen","man","woman",...G_FILL,...G_CROWD].includes(w));
+const ARR={ first:[["king","man"],["queen","woman"]],
+            capTJ:[["tokyo","japan"]],
+            capPF:[["paris","france"],["rome","italy"]],
+            gen:[["king","prince"],["queen","princess"],["man","son"],["woman","daughter"]] };
+const ARRCOLOR={ first:0xd9a05b, capTJ:0x7f9bb3, capPF:0x7f9bb3, gen:0xc4798a };
+const CLUSTERS=[
+  {name:"ROYALTY", color:0xd9a05b, members:["king","queen","prince","princess","ruled","kingdom","castle"]},
+  {name:"KINSHIP", color:0xc4798a, members:["man","woman","son","daughter","brother","sister","his","her","told","story"]},
+  {name:"PLACES",  color:0x7f9bb3, members:["paris","rome","tokyo","london","france","italy","japan","england","capital","train"]}
+];
+const MIDWORDS=("bread music doctor window seven blue run mountain letter winter horse market "+
+ "ocean glass fire garden clock ship stone rain gold dream door bird salt paper voice "+
+ "night wheel song iron cloud field lamp water loan money chair north sugar wire key "+
+ "tide rope spark silver oak bell pine wool moth dew").split(" ");
+
+const glHost=document.getElementById("webgl");
+let renderer, scene, camera, rig, galaxy, bgB, bgC, threeReady=false;
+const fg={}, anon2D=[], waveA=[], waveB=[], midSprites=[], glowSprites=[], plateLabels=[], farClusters=[];
+const arrows=[];
+const fades=[], pops=[], flares=[];
+let webBuilt=false, webBatches=[];
+const FOV=55;
+let camZ=92, camZT=92, drift=0, driftCap=92;
+let rotY=0, rotX=0, rotZ=0, rotVelY=0, rotVelX=0;
+let rotMode="flat", rockStart=0, wander=false, wanderT0=0;
+let depth=0, depthT=0, spin=0, spinT=0, mom=1, momT=1;
+function fadeTo(mat,t,rate){ const f=fades.find(f=>f.mat===mat); if(f){ f.t=t; f.rate=rate||0.06; } else fades.push({mat,t,rate:rate||0.06}); }
+function worldPerPx(z){ return (2*z*Math.tan(FOV*Math.PI/360))/innerHeight; }
+function rigOffTarget(){ return (railWTarget()/2)*worldPerPx(92); }
+
+function makeCanvasTex(draw,w,h){
+  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  draw(cv.getContext("2d"),w,h);
+  const t=new THREE.CanvasTexture(cv); t.minFilter=THREE.LinearFilter; return t;
+}
+function textSprite(text,{font="500 60px Palatino, Georgia, serif", color="#eae4d3", scale=4.4}={}){
+  const pad=24, meas=document.createElement("canvas").getContext("2d");
+  meas.font=font; const w=Math.ceil(meas.measureText(text).width)+pad*2;
+  const tex=makeCanvasTex((c2)=>{ c2.font=font; c2.fillStyle=color; c2.textBaseline="middle";
+    c2.shadowColor=color; c2.shadowBlur=14; c2.fillText(text,pad,48); }, w, 96);
+  const mat=new THREE.SpriteMaterial({map:tex, transparent:true, opacity:0, depthWrite:false});
+  const sp=new THREE.Sprite(mat);
+  sp.scale.set(w/96*scale, scale, 1);
+  sp.userData.bw=w/96*scale; sp.userData.bh=scale;
+  return sp;
+}
+function plateSprite(text,colorHex){
+  const color="#"+colorHex.toString(16).padStart(6,"0");
+  const font="700 44px ui-sans-serif, system-ui, sans-serif";
+  const meas=document.createElement("canvas").getContext("2d");
+  const txt=text.split("").join(" ");
+  meas.font=font;
+  const w=Math.ceil(meas.measureText(txt).width)+76, h=110;
+  const tex=makeCanvasTex((c)=>{
+    const r=18;
+    c.beginPath();
+    c.moveTo(r,8); c.lineTo(w-r,8); c.arcTo(w-8,8,w-8,8+r,r);
+    c.lineTo(w-8,h-8-r); c.arcTo(w-8,h-8,w-8-r,h-8,r);
+    c.lineTo(8+r,h-8); c.arcTo(8,h-8,8,h-8-r,r);
+    c.lineTo(8,8+r); c.arcTo(8,8,8+r,8,r); c.closePath();
+    c.fillStyle="rgba(7,7,13,0.82)"; c.fill();
+    c.lineWidth=3; c.strokeStyle=color; c.stroke();
+    c.font=font; c.fillStyle=color; c.textBaseline="middle"; c.textAlign="center";
+    c.shadowColor=color; c.shadowBlur=18;
+    c.fillText(txt, w/2, h/2+2);
+  }, w, h);
+  const mat=new THREE.SpriteMaterial({map:tex, transparent:true, opacity:0, depthWrite:false, depthTest:false});
+  const sp=new THREE.Sprite(mat);
+  const s=5.4;
+  sp.scale.set(w/h*s, s, 1);
+  sp.userData.bw=w/h*s; sp.userData.bh=s;
+  sp.renderOrder=10;
+  return sp;
+}
+const softDot=()=>makeCanvasTex((c)=>{ const g=c.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,"rgba(255,255,255,1)"); g.addColorStop(0.4,"rgba(255,255,255,0.45)");
+  g.addColorStop(1,"rgba(255,255,255,0)"); c.fillStyle=g; c.fillRect(0,0,64,64); },64,64);
+const glowTex=()=>makeCanvasTex((c)=>{ const g=c.createRadialGradient(128,128,0,128,128,128);
+  g.addColorStop(0,"rgba(255,255,255,0.8)"); g.addColorStop(0.4,"rgba(255,255,255,0.2)");
+  g.addColorStop(1,"rgba(255,255,255,0)"); c.fillStyle=g; c.fillRect(0,0,256,256); },256,256);
+
+function mkPointsCloud(seed,count){
+  const r=mulberry32(seed);
+  const pos=new Float32Array(count*3), col=new Float32Array(count*3);
+  const clumps=[];
+  for(let i=0;i<10;i++){
+    const th=r()*Math.PI*2, ph=Math.acos(2*r()-1), rad=28+r()*68;
+    clumps.push({c:[rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.7, rad*Math.cos(ph)], s:5.5+r()*8});
+  }
+  const gauss=()=> (r()+r()+r()+r()-2)/1.2;
+  const tc=new THREE.Color();
+  for(let i=0;i<count;i++){
+    let p;
+    if(r()<0.55){ const cl=clumps[i%clumps.length];
+      p=[cl.c[0]+gauss()*cl.s, cl.c[1]+gauss()*cl.s, cl.c[2]+gauss()*cl.s]; }
+    else { const th=r()*Math.PI*2, ph=Math.acos(2*r()-1), rad=20+Math.cbrt(r())*115;
+      p=[rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.8, rad*Math.cos(ph)]; }
+    pos.set(p,i*3);
+    if(r()<0.12) tc.setHSL(0.085,0.55,0.62+r()*0.25);
+    else         tc.setHSL(0.58+r()*0.08,0.25,0.62+r()*0.33);
+    col.set([tc.r,tc.g,tc.b],i*3);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  geo.setAttribute("color",new THREE.BufferAttribute(col,3));
+  return new THREE.Points(geo,new THREE.PointsMaterial({
+    map:softDot(), size:2.1, sizeAttenuation:true, vertexColors:true, transparent:true,
+    opacity:0, depthWrite:false, blending:THREE.AdditiveBlending }));
+}
+function mkFarCluster(seed, center, rate){
+  const r=mulberry32(seed), n=200;
+  const pos=new Float32Array(n*3), s=7.5+r()*3.5;
+  const gauss=()=> (r()+r()+r()+r()-2)/1.2;
+  for(let i=0;i<n;i++) pos.set([gauss()*s, gauss()*s*0.7, gauss()*s], i*3);
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+  const mat=new THREE.PointsMaterial({map:softDot(), color:0xb9c4d6, size:1.7,
+    sizeAttenuation:true, transparent:true, opacity:0, depthWrite:false,
+    blending:THREE.AdditiveBlending});
+  const pts=new THREE.Points(geo, mat);
+  const group=new THREE.Group(); group.add(pts); group.position.set(...center);
+  return {group, mat, rate};
+}
+
+function initThree(){
+  if(threeReady) return;
+  renderer=new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  renderer.setSize(innerWidth,innerHeight);
+  glHost.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(FOV, innerWidth/innerHeight, 0.1, 900);
+  camera.position.set(0,0,camZ);
+  rig=new THREE.Group(); scene.add(rig);
+  rig.position.x=rigOffTarget();
+  galaxy=new THREE.Group(); rig.add(galaxy);
+
+  bgB=mkPointsCloud(43,1900); bgC=mkPointsCloud(44,2100);
+  galaxy.add(bgB); galaxy.add(bgC);
+  /* deep-distance clusters: inside the galaxy, so they move with everything else */
+  [[ 80, 50,-58, 0.0011],[ -88,-42, 42,-0.0013],[ 58, 60, 74, 0.0015],[ -70, 56,-70,-0.0009]]
+    .forEach((d,i)=>{ const fc=mkFarCluster(60+i,[d[0],d[1],d[2]],d[3]);
+      galaxy.add(fc.group); farClusters.push(fc); });
+
+  const dotTex=softDot();
+  function mkStar(colorHex,scale){
+    const m=new THREE.SpriteMaterial({map:dotTex, color:colorHex, transparent:true,
+      opacity:0, depthWrite:false, blending:THREE.AdditiveBlending});
+    const s=new THREE.Sprite(m); s.scale.set(scale,scale,1); return s;
+  }
+  for(const w of ALL_WORDS){
+    const crowd=G_CROWD.includes(w);
+    const star=mkStar(0xfff3da, crowd?2.0:2.4);
+    const label=textSprite(w, crowd?{scale:3.6, color:"#cfc9b6"}:{});
+    const target=new THREE.Vector3(...POS[w]);
+    galaxy.add(star); galaxy.add(label);
+    fg[w]={star,label,target,on:false, labelOp: crowd?0.72:0.92};
+  }
+  const ar=mulberry32(77);
+  for(let i=0;i<105;i++){
+    const star=mkStar(0xdfe7f2, 1.5+ar()*1.1);
+    const target=new THREE.Vector3((ar()-0.5)*92, (ar()-0.5)*76, (ar()-0.5)*44);
+    galaxy.add(star);
+    anon2D.push({star, target, on:false, minT: i<78 ? 11 : 15});
+  }
+  /* Wikipedia wave: individually animated stars */
+  const wr=mulberry32(55);
+  for(let i=0;i<220;i++){
+    const th=wr()*Math.PI*2, ph=Math.acos(2*wr()-1), rad=26+Math.pow(wr(),0.75)*46;
+    const star=mkStar(wr()<0.18?0xf3ddb4:0xe4ebf6, 1.3+wr()*1.2);
+    star.position.set(rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.8, rad*Math.cos(ph));
+    galaxy.add(star);
+    waveA.push(star);
+  }
+  /* Congress wave: a larger staccato of individual arrivals */
+  const wr2=mulberry32(56);
+  for(let i=0;i<560;i++){
+    const th=wr2()*Math.PI*2, ph=Math.acos(2*wr2()-1), rad=28+Math.pow(wr2(),0.9)*78;
+    const star=mkStar(wr2()<0.15?0xf3ddb4:0xdde6f4, 1.2+wr2()*1.2);
+    star.position.set(rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.8, rad*Math.cos(ph));
+    galaxy.add(star);
+    waveB.push(star);
+  }
+  const jr=mulberry32(99);
+  MIDWORDS.forEach((w,i)=>{
+    const th=jr()*Math.PI*2, ph=Math.acos(2*jr()-1), rad=44+jr()*62;
+    const sp=textSprite(w,{scale:2.9, color:"#b9b2a0"});
+    sp.position.set(rad*Math.sin(ph)*Math.cos(th), rad*Math.sin(ph)*Math.sin(th)*0.75, rad*Math.cos(ph));
+    galaxy.add(sp); midSprites.push({sp, wave:i%2});
+  });
+  for(const fam of Object.keys(ARR)){
+    for(const [a,b] of ARR[fam]){
+      const h=new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 1, ARRCOLOR[fam], 3, 1.5);
+      h.line.material.transparent=true; h.cone.material.transparent=true;
+      h.line.material.opacity=0; h.cone.material.opacity=0;
+      galaxy.add(h);
+      arrows.push({a,b,h,fam});
+    }
+  }
+  const gt=glowTex();
+  for(const cl of CLUSTERS){
+    const c=new THREE.Vector3();
+    cl.members.forEach(w=>c.add(fg[w].target)); c.multiplyScalar(1/cl.members.length);
+    const gmat=new THREE.SpriteMaterial({map:gt, color:cl.color, transparent:true,
+      opacity:0, depthWrite:false, blending:THREE.AdditiveBlending});
+    const g=new THREE.Sprite(gmat); g.position.copy(c); g.scale.set(50,50,1);
+    galaxy.add(g); glowSprites.push(g);
+    const lb=plateSprite(cl.name, cl.color);
+    lb.position.copy(c);
+    galaxy.add(lb); plateLabels.push(lb);
+  }
+
+  let down=false, lx=0, ly=0;
+  addEventListener("pointerdown",e=>{
+    if(rotMode!=="free") return;
+    if(e.target.closest("button")) return;
+    down=true; lx=e.clientX; ly=e.clientY;
+  });
+  addEventListener("pointermove",e=>{ if(!down) return;
+    rotVelY=(e.clientX-lx)*0.0032; rotVelX=(e.clientY-ly)*0.0022;
+    lx=e.clientX; ly=e.clientY; });
+  addEventListener("pointerup",()=>{ down=false; });
+  addEventListener("resize",()=>{ camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+
+  threeReady=true;
+  let prev=performance.now();
+  (function loop(now){
+    requestAnimationFrame(loop);
+    const dt=Math.min(0.05,(now-prev)/1000); prev=now;
+    depth+=(depthT-depth)*0.03;
+    const spinGoal=(wander && rotMode==="free")
+      ? spinT + 0.0016*Math.sin((now-wanderT0)/7000)
+      : spinT;
+    mom+=(momT-mom)*0.012;
+    spin+=(spinGoal*mom-spin)*0.02;
+    if(wander && rotMode==="free"){
+      const wt=now-wanderT0;
+      rotX += 0.0010*Math.cos(wt/5200)*mom;   /* the tap: a new spin component, felt at once */
+      rotZ += 0.0008*Math.sin(wt/6800)*mom;
+    } else rotZ += (0-rotZ)*0.03;
+    if(rotMode==="flat"){
+      const d=((0-rotY+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
+      rotY+=d*0.06; rotX+=(0-rotX)*0.06;
+    } else if(rotMode==="rock"){
+      const t=(now-rockStart)/1000;
+      rotY += spin + 0.0021*Math.sin(t*1.1);          /* begins at zero velocity */
+      rotX += (Math.sin(Math.min(t*0.55,1.2)*0.32)*0.15 - rotX)*0.03;
+      if(t>6.5) rotMode="free";
+    } else {
+      rotY+=spin+rotVelY; rotX+=rotVelX;
+      rotVelY*=0.93; rotVelX*=0.93;
+      const xc=wander?0.8:0.55;
+      rotX=Math.max(-xc,Math.min(xc,rotX));
+    }
+    galaxy.rotation.y=rotY; galaxy.rotation.x=rotX; galaxy.rotation.z=rotZ;
+    for(const fc of farClusters) fc.group.rotation.y+=fc.rate;
+    if(drift>0 && !reduceMotion) camZT=Math.min(driftCap, camZT+drift*dt);
+    camZ+=(camZT-camZ)*0.035; camera.position.z=camZ;
+    rig.position.x+=(rigOffTarget()-rig.position.x)*0.08;
+    for(const f of fades) f.mat.opacity+=(f.t-f.mat.opacity)*f.rate;
+    for(let i=pops.length-1;i>=0;i--){
+      const p=pops[i], e=Math.min(1,(now-p.t0)/700);
+      const s=p.base*(0.25+0.75*(1-Math.pow(1-e,3))*(1+0.18*Math.sin(e*Math.PI)));
+      p.sp.scale.set(s*p.ax, s, 1);
+      if(e>=1){ p.sp.scale.set(p.base*p.ax, p.base, 1); pops.splice(i,1); }
+    }
+    for(let i=flares.length-1;i>=0;i--){
+      const fl=flares[i], e=(now-fl.t0)/1300;
+      if(e>=1){ fl.sp.material.color.setRGB(1,1,1);
+        fl.sp.scale.set(fl.sp.userData.bw, fl.sp.userData.bh, 1); flares.splice(i,1); continue; }
+      const p=Math.sin(Math.min(e,1)*Math.PI);
+      fl.sp.material.color.setRGB(1+0.6*p, 1+0.18*p, 1-0.3*p);
+      const k=1+0.34*p;
+      fl.sp.scale.set(fl.sp.userData.bw*k, fl.sp.userData.bh*k, 1);
+    }
+    for(const w of ALL_WORDS){
+      const e=fg[w]; if(!e.on) continue;
+      const z=e.target.z*depth;
+      e.star.position.set(e.target.x, e.target.y, z);
+      e.label.position.set(e.target.x, e.target.y+3.1, z);
+    }
+    for(const a of anon2D){ if(!a.on) continue;
+      a.star.position.set(a.target.x, a.target.y, a.target.z*depth); }
+    const dir=new THREE.Vector3();
+    for(const ar2 of arrows){
+      if(ar2.h.line.material.opacity<0.01 && ar2.h.cone.material.opacity<0.01) continue;
+      const A=fg[ar2.a].star.position, B=fg[ar2.b].star.position;
+      dir.subVectors(B,A); const len=dir.length();
+      const head=Math.min(4.2, Math.max(1.3, len*0.11));
+      ar2.h.position.copy(A);
+      ar2.h.setDirection(dir.normalize());
+      ar2.h.setLength(Math.max(1,len-2.2), head, head*0.45);
+    }
+    renderer.render(scene,camera);
+  })(performance.now());
+}
+
+/* — the relationship web (T20–T22) — */
+function buildWeb(){
+  if(webBuilt) return;
+  const nodes=[];
+  for(const w of ALL_WORDS) nodes.push(fg[w].target.clone());
+  for(const a of anon2D) nodes.push(a.target.clone());
+  waveA.forEach((s,i)=>{ if(i%2===0) nodes.push(s.position.clone()); });
+  waveB.forEach((s,i)=>{ if(i%3===0) nodes.push(s.position.clone()); });
+  const nLab=ALL_WORDS.length, nAnon=anon2D.length;
+  const r=mulberry32(31);
+  const edges=new Set(), list=[];
+  function addEdge(i,j){ if(i===j) return;
+    const k=i<j? i+"-"+j : j+"-"+i;
+    if(edges.has(k)) return; edges.add(k); list.push([i,j]); }
+  function nearest(i,k){
+    const d=[];
+    for(let j=0;j<nodes.length;j++){ if(j===i) continue;
+      d.push([nodes[i].distanceToSquared(nodes[j]), j]); }
+    d.sort((a,b)=>a[0]-b[0]);
+    return d.slice(0,k).map(x=>x[1]);
+  }
+  function farPick(i){
+    for(let tries=0;tries<24;tries++){
+      const j=Math.floor(r()*nodes.length);
+      if(j!==i && nodes[i].distanceTo(nodes[j])>70) return j;
+    }
+    return null;
+  }
+  for(let i=0;i<nodes.length;i++){
+    if(i<nLab){ nearest(i,4).forEach(j=>addEdge(i,j));
+      if(r()<0.85){ const f=farPick(i); if(f!==null) addEdge(i,f); } }
+    else if(i<nLab+nAnon){ nearest(i,2).forEach(j=>addEdge(i,j));
+      if(r()<0.35){ const f=farPick(i); if(f!==null) addEdge(i,f); } }
+    else { nearest(i,1).forEach(j=>addEdge(i,j));
+      if(r()<0.15){ const f=farPick(i); if(f!==null) addEdge(i,f); } }
+  }
+  for(let i=list.length-1;i>0;i--){ const j=Math.floor(r()*(i+1));
+    [list[i],list[j]]=[list[j],list[i]]; }
+  const NBATCH=5, per=Math.ceil(list.length/NBATCH);
+  for(let b=0;b<NBATCH;b++){
+    const chunk=list.slice(b*per,(b+1)*per);
+    const pos=new Float32Array(chunk.length*6);
+    chunk.forEach(([i,j],k)=>{
+      pos.set([nodes[i].x,nodes[i].y,nodes[i].z, nodes[j].x,nodes[j].y,nodes[j].z], k*6); });
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+    const mat=new THREE.LineBasicMaterial({color:0x9fb0c4, transparent:true, opacity:0,
+      blending:THREE.AdditiveBlending, depthWrite:false});
+    const seg=new THREE.LineSegments(geo,mat);
+    galaxy.add(seg); webBatches.push(seg);
+  }
+  webBuilt=true;
+}
+
+/* — placement primitives — */
+function starOn(w, pop){
+  const e=fg[w]; e.on=true;
+  fadeTo(e.star.material, 0.95);
+  if(pop && !reduceMotion) pops.push({sp:e.star, t0:performance.now(), base:e.star.scale.y, ax:1});
+}
+function labelOn(w){ fadeTo(fg[w].label.material, fg[w].labelOp); }
+function wordOff(w){ const e=fg[w]; e.on=false;
+  fadeTo(e.star.material,0); fadeTo(e.label.material,0); }
+function flareLabel(w){ if(reduceMotion) return;
+  flares.push({sp:fg[w].label, t0:performance.now()}); }
+function setFam(fam, lineT, coneT){
+  if(coneT===undefined) coneT=lineT;
+  for(const ar2 of arrows) if(ar2.fam===fam){
+    fadeTo(ar2.h.line.material,lineT); fadeTo(ar2.h.cone.material,coneT); }
+}
+
+/* ════════════════ STATE RESOLVER ════════════════ */
+const BASE_Z={16:96,17:106,18:120,19:128,20:134,21:140,22:145,23:150,24:162,25:162,26:162,27:162};
+const DRIFT ={17:[1.1,140],18:[1.05,148],19:[0.4,150],
+              20:[0.9,156],21:[0.9,157],22:[0.9,158],23:[0.9,159]};
+function applyState(t, fwd){
+  /* ---- text field (T1–T4) ---- */
+  if(t>=1 && t<=4){
+    if(t===1 && fwd) resetField();
+    if(!frags.length) resetField();
+    zoomRun = (t<=2);                 /* T3+ freezes the zoom wherever it currently is */
+    if(!fwd && t>=3 && zoom>1.0) zoom=0.85;   /* only when jumping in via dots */
+    if(fwd && t===3) ensureCarriers(0, 3);
+    if(fwd && t===4) for(let p=1;p<PAIRS.length;p++) ensureCarriers(p, 1);
+    wakeField();
+  }
+  if(t<5){ if(threeReady) hideMapAll(); return; }
+
+  /* ---- the map (T5+) ---- */
+  initThree();
+  const wantStar=w=>{
+    if(w==="king") return t>=6;
+    if(w==="queen") return t>=7;
+    if(w==="man") return t>=8;
+    if(w==="woman") return t>=9;
+    if(G_FILL.includes(w)) return t>=11;
+    if(G_CROWD.includes(w)) return t>=15;
+    return t>=17;
+  };
+  for(const w of ALL_WORDS){
+    if(wantStar(w)){
+      if(!fg[w].on){ if(fwd) placeForward(w,t); else { starOn(w,false); labelOn(w); } }
+    } else wordOff(w);
+  }
+  for(const a of anon2D){
+    const want=t>=a.minT;
+    if(want && !a.on){ a.on=true;
+      if(fwd && t===a.minT) after(200+Math.random()*(a.minT===11?2300:1500),()=>fadeTo(a.star.material,0.8));
+      else fadeTo(a.star.material,0.8);
+    } else if(!want && a.on){ a.on=false; fadeTo(a.star.material,0); }
+  }
+  /* Wikipedia wave — individually animated on the forward step */
+  if(t>=17){
+    if(fwd && t===17 && !reduceMotion){
+      waveA.forEach((s,i)=>after(140+i*9,()=>{
+        fadeTo(s.material,0.85);
+        pops.push({sp:s, t0:performance.now(), base:s.scale.y, ax:1});
+      }));
+    } else waveA.forEach(s=>fadeTo(s.material,0.85));
+  } else waveA.forEach(s=>fadeTo(s.material,0));
+  /* arrows — heads dissolve into pure relationship lines from T17 */
+  const cones=(v)=> t>=18 ? 0 : v;
+  const lFirst = t>=10 ? (t>=16?0.35 : t>=12?0.55 : 0.95) : 0;
+  const lTJ = t>=12 ? (t>=16?0.35:0.95) : 0;
+  const lPF = t>=13 ? (t>=16?0.35:0.95) : 0;
+  const lGen= t>=14 ? (t>=16?0.35:0.95) : 0;
+  if(t>=24){
+    const v = t===24 ? 0.3 : 0;
+    setFam("first",v,0); setFam("capTJ",v,0); setFam("capPF",v,0); setFam("gen",v,0);
+  } else {
+    setFam("first",lFirst,cones(lFirst));
+    setFam("capTJ",lTJ,cones(lTJ));
+    setFam("capPF",lPF,cones(lPF));
+    setFam("gen",lGen,cones(lGen));
+  }
+  /* dimension & camera */
+  depthT = t>=16 ? 1 : 0;
+  spinT  = t>=16 && !reduceMotion ? 0.0022 : 0;
+  const wasWander=wander;
+  wander = t>=21 && !reduceMotion;          /* the tap lands as the web populates */
+  if(wander && !wasWander) wanderT0=performance.now();
+  momT = (t>=26) ? 0.03 : 1;                /* T26: momentum eases to a crawl */
+  if(t<16){ rotMode="flat"; camZT=92; drift=0; }
+  else {
+    if(fwd && t===16 && !reduceMotion){ rotMode="rock"; rockStart=performance.now(); }
+    else if(rotMode==="flat") rotMode="free";
+    if(!fwd) camZT=BASE_Z[t]||camZT;
+    else camZT=Math.max(camZT, BASE_Z[t]||92);
+    if(t>=24) camZT=162;                  /* widest frame; T24 adds no zoom */
+    const d=DRIFT[t];
+    drift = d ? d[0] : 0; driftCap = d ? d[1] : camZT;
+  }
+  /* labels ghost on the final beat: the names were ours, the shapes are its */
+  if(t>=18){
+    const ghost=(t>=26);
+    for(const w of ALL_WORDS) if(fg[w].on)
+      fadeTo(fg[w].label.material, ghost?0.12:fg[w].labelOp, ghost&&fwd?0.025:0.06);
+  }
+  /* Congress wave — staccato: individual arrivals first, the deep fill beneath */
+  if(t>=18){
+    if(fwd && t===18 && !reduceMotion){
+      waveB.forEach((s,i)=>after(80+i*4,()=>{
+        fadeTo(s.material,0.8);
+        pops.push({sp:s, t0:performance.now(), base:s.scale.y, ax:1});
+      }));
+      after(2000,()=>fadeTo(bgB.material,0.5,0.012));   /* deep fill creeps, never pops */
+      after(3800,()=>fadeTo(bgC.material,0.7,0.01));
+    } else { waveB.forEach(s=>fadeTo(s.material,0.8));
+      fadeTo(bgB.material,0.5); fadeTo(bgC.material,0.7); }
+  } else { waveB.forEach(s=>fadeTo(s.material,0));
+    fadeTo(bgB.material,0); fadeTo(bgC.material,0); }
+  for(const fc of farClusters) fadeTo(fc.mat, t>=18 ? 0.6 : 0);
+  for(const m of midSprites){
+    const on = (m.wave===0 && t>=17)||(m.wave===1 && t>=18);
+    fadeTo(m.sp.material, on ? (t>=26?0.06:0.2) : 0);
+  }
+  /* the relationship web */
+  if(t>=21 && t<=23){
+    buildWeb();
+    if(fwd && t===21 && !reduceMotion)
+      webBatches.forEach((b,i)=>after(300+i*450,()=>fadeTo(b.material,0.21)));
+    else webBatches.forEach(b=>fadeTo(b.material,0.21));
+  } else webBatches.forEach(b=>fadeTo(b.material,0));
+  /* clusters: glow + ring + plates */
+  glowSprites.forEach(g=>fadeTo(g.material, t>=26 ? 0.72 : t===25 ? 0.62 : (t===24 ? 0.42 : 0), t===26&&fwd ? 0.02 : 0.06));
+  if(t===25){ if(fwd) popPlates(); else plateLabels.forEach(p=>fadeTo(p.material,0.95)); }
+  else if(t===26) plateLabels.forEach(p=>fadeTo(p.material,0, fwd?0.02:0.06));
+  else plateLabels.forEach(p=>fadeTo(p.material,0));
+  /* T27 · fade to black: remnants → stars → orbs */
+  if(t===27){
+    const slow=fwd && !reduceMotion;
+    const out=(mat,delay,rate)=>{ if(slow) after(delay,()=>fadeTo(mat,0,rate)); else fadeTo(mat,0); };
+    for(const w of ALL_WORDS){ out(fg[w].label.material,0,0.02); out(fg[w].star.material,1800,0.015); }
+    for(const m of midSprites) out(m.sp.material,0,0.02);
+    for(const a of anon2D) out(a.star.material,1800,0.015);
+    waveA.forEach(sp=>out(sp.material,1800,0.015));
+    waveB.forEach(sp=>out(sp.material,1800,0.015));
+    out(bgB.material,1800,0.015); out(bgC.material,1800,0.015);
+    for(const fc of farClusters) out(fc.mat,1800,0.015);
+    glowSprites.forEach(g=>out(g.material,4200,0.012));
+  }
+  if(fwd) forwardFx(t);
+}
+function hideMapAll(){
+  for(const w of ALL_WORDS) wordOff(w);
+  for(const a of anon2D){ a.on=false; fadeTo(a.star.material,0); }
+  waveA.forEach(s=>fadeTo(s.material,0));
+  waveB.forEach(s=>fadeTo(s.material,0));
+  ["first","capTJ","capPF","gen"].forEach(f=>setFam(f,0));
+  fadeTo(bgB.material,0); fadeTo(bgC.material,0);
+  for(const fc of farClusters) fadeTo(fc.mat,0);
+  for(const m of midSprites) fadeTo(m.sp.material,0);
+  webBatches.forEach(b=>fadeTo(b.material,0));
+  glowSprites.forEach(g=>fadeTo(g.material,0));
+  wander=false;
+  plateLabels.forEach(p=>fadeTo(p.material,0));
+  depthT=0; spinT=0; rotMode="flat"; camZT=92; drift=0;
+}
+function placeForward(w,t){
+  if(["king","queen","man","woman"].includes(w)){
+    starOn(w,true);
+    after(650,()=>labelOn(w));
+  } else if(G_FILL.includes(w) && t===11){
+    const i=G_FILL.indexOf(w);
+    after(150+i*220,()=>{ starOn(w,false); after(420,()=>labelOn(w)); });
+  } else if(G_CROWD.includes(w) && t===15){
+    const i=G_CROWD.indexOf(w);
+    after(120+i*110,()=>{ starOn(w,false); after(260,()=>labelOn(w)); });
+  } else if(t===17){
+    after(300+Math.random()*2400,()=>{ starOn(w,false); after(420,()=>labelOn(w)); });
+  } else { starOn(w,false); labelOn(w); }
+}
+function forwardFx(t){
+  if(t===10){ setFam("first",0); after(350,()=>setFam("first",0.95)); }
+  if(t===12){ flareLabel("tokyo"); flareLabel("japan");
+    setFam("capTJ",0); after(950,()=>setFam("capTJ",0.95)); }
+  if(t===13){ flareLabel("paris"); flareLabel("france");
+    setFam("capPF",0);
+    after(750,()=>{ flareLabel("rome"); flareLabel("italy"); });
+    after(950,()=>setFam("capPF",0.95)); }
+  if(t===14){
+    setFam("gen",0);
+    ARR.gen.forEach((pr,i)=>after(250+i*430,()=>{ flareLabel(pr[0]); flareLabel(pr[1]); }));
+    after(800,()=>setFam("gen",0.95));
+  }
+  if(t===24 && !reduceMotion){
+    setFam("first",0.9,0); setFam("capTJ",0.12,0); setFam("capPF",0.12,0); setFam("gen",0.12,0);
+    after(2600,()=>{ setFam("first",0.25,0); setFam("capTJ",0.9,0); setFam("capPF",0.9,0); });
+    after(5200,()=>{ setFam("capTJ",0.25,0); setFam("capPF",0.25,0); setFam("gen",0.9,0); });
+    after(7600,()=>["first","capTJ","capPF","gen"].forEach(f=>setFam(f,0.3,0)));
+  }
+}
+function popPlates(){
+  plateLabels.forEach((p,i)=>after(300+i*420,()=>{
+    fadeTo(p.material,0.95);
+    if(!reduceMotion) pops.push({sp:p, t0:performance.now(), base:p.userData.bh, ax:p.userData.bw/p.userData.bh});
+  }));
+}
+
+/* warm the GPU early */
+setTimeout(()=>{ try{ initThree(); }catch(e){ console.error(e); } }, 1200);
+</script>
+</body>
+</html>
