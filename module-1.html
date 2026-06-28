@@ -59,9 +59,13 @@
     white-space:nowrap;
   }
   .brand:hover{color:var(--ink)}
-  .dots{display:flex;gap:.45rem;align-items:center}
-  .dots span{width:22px;height:3px;border-radius:2px;background:rgba(234,228,211,.16)}
-  .dots span.on{background:var(--acc)}
+  .dots{display:flex;gap:.15rem;align-items:center}
+  .dots a{display:block;padding:.55rem .2rem;line-height:0;text-decoration:none;border-radius:4px}
+  .dots a span{display:block;width:22px;height:3px;border-radius:2px;background:rgba(234,228,211,.16);transition:background .2s}
+  .dots a:hover span{background:rgba(234,228,211,.5)}
+  .dots a.on span{background:var(--acc)}
+  .dots a.on:hover span{background:var(--acc)}
+  .dots a:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
   .navlinks{display:flex;gap:.4rem}
   .navlinks a{
     font-family:var(--sans);font-size:.62rem;font-weight:600;letter-spacing:.16em;
@@ -231,7 +235,11 @@
   <nav class="topnav">
     <div class="bar">
       <a class="brand" href="index.html">AI at Daemen</a>
-      <div class="dots" aria-hidden="true"><span class="on"></span><span></span><span></span></div>
+      <div class="dots" role="navigation" aria-label="Module progress">
+        <a href="module-1.html" class="on" aria-current="page" title="Module 1 · How AI Works"><span></span></a>
+        <a href="module-2.html" title="Module 2 · Brilliant Assistant, Pathological Liar"><span></span></a>
+        <a href="module-3.html" title="Module 3 · Owning Your Work"><span></span></a>
+      </div>
       <div class="navlinks">
         <a href="index.html">Home</a>
         <a href="module-2.html">Next <span class="lbl">·</span> →</a>
@@ -287,8 +295,6 @@
 
     <p>It does things that make it <em>seem</em> like it <em>understands</em>. But does it really, or is that just an illusion?</p>
 
-    <p>In our next module, we're going to talk about the limitations of these models, what that means for how you can use them without getting tricked--and end by talking about how students are expected to use AI at Daemen.</p>
-
     <!-- Knowledge check -->
     <section class="check" aria-label="Knowledge check">
       <p class="clabel">Knowledge Check</p>
@@ -301,6 +307,8 @@
       </div>
       <p class="feedback" role="status" aria-live="polite"></p>
     </section>
+
+    <p>In our next module, we're going to talk about the limitations of these models, what that means for how you can use them without getting tricked--and end by talking about how students are expected to use AI at Daemen.</p>
   </article>
 
   <nav class="pager" aria-label="Module navigation">

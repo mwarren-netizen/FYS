@@ -49,9 +49,13 @@
   .brand{font-family:var(--sans);text-transform:uppercase;letter-spacing:.24em;
     font-size:.62rem;font-weight:600;color:var(--ink-dim);text-decoration:none;white-space:nowrap;}
   .brand:hover{color:var(--ink)}
-  .dots{display:flex;gap:.45rem;align-items:center}
-  .dots span{width:22px;height:3px;border-radius:2px;background:rgba(234,228,211,.16)}
-  .dots span.on{background:var(--acc)}
+  .dots{display:flex;gap:.15rem;align-items:center}
+  .dots a{display:block;padding:.55rem .2rem;line-height:0;text-decoration:none;border-radius:4px}
+  .dots a span{display:block;width:22px;height:3px;border-radius:2px;background:rgba(234,228,211,.16);transition:background .2s}
+  .dots a:hover span{background:rgba(234,228,211,.5)}
+  .dots a.on span{background:var(--acc)}
+  .dots a.on:hover span{background:var(--acc)}
+  .dots a:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
   .navlinks{display:flex;gap:.4rem}
   .navlinks a{font-family:var(--sans);font-size:.62rem;font-weight:600;letter-spacing:.16em;
     text-transform:uppercase;text-decoration:none;color:var(--ink-dim);
@@ -76,6 +80,13 @@
 
   .pull{margin:3rem 0;padding:.4rem 0 .4rem 1.6rem;border-left:3px solid var(--acc);
     font-size:clamp(1.5rem,4.2vw,2rem);line-height:1.28;font-style:italic;color:var(--ink);letter-spacing:-.01em;}
+
+  /* pivot divider */
+  .divider{display:flex;align-items:center;gap:1.1rem;margin:3.4rem 0;}
+  .divider::before,.divider::after{content:"";height:1px;flex:1;}
+  .divider::before{background:linear-gradient(90deg,transparent,rgba(234,228,211,.22));}
+  .divider::after{background:linear-gradient(90deg,rgba(234,228,211,.22),transparent);}
+  .divider span{color:var(--acc);font-size:.95rem;letter-spacing:.2em;opacity:.85;}
 
   .video{margin:3rem 0}
   .video .vlabel{font-family:var(--sans);text-transform:uppercase;letter-spacing:.28em;
@@ -155,7 +166,11 @@
   <nav class="topnav">
     <div class="bar">
       <a class="brand" href="index.html">AI at Daemen</a>
-      <div class="dots" aria-hidden="true"><span></span><span></span><span class="on"></span></div>
+      <div class="dots" role="navigation" aria-label="Module progress">
+        <a href="module-1.html" title="Module 1 · How AI Works"><span></span></a>
+        <a href="module-2.html" title="Module 2 · Brilliant Assistant, Pathological Liar"><span></span></a>
+        <a href="module-3.html" class="on" aria-current="page" title="Module 3 · Owning Your Work"><span></span></a>
+      </div>
       <div class="navlinks">
         <a href="module-2.html">← Prev</a>
         <a href="index.html">Home</a>
@@ -171,7 +186,7 @@
 
     <p class="dropcap">At this point in these modules, you might be saying to yourself, "Wait! Obviously this is very useful information--and has up to this point been very charismatically presented--but I don't understand why I'm getting it through official channels. Isn't using AI in school work totally forbidden? Won't I get kicked out of school for this?"</p>
 
-    <p>Well, if it's cheating, yes, I'm afraid that could happen. But let's take a step back for a second: what qualifies as cheating exactly? And what's so bad with cheating in the first place?</p>
+    <p>Well, if it's <em>cheating</em>, yes, I'm afraid that could happen. But let's take a step back for a second: what qualifies as cheating exactly? And what's so bad with cheating in the first place?</p>
 
     <div class="video">
       <div class="vlabel">Video</div>
@@ -195,13 +210,13 @@
 
     <p>The big takeaway from the last lesson--the one where we were talking about how to use AI without getting fooled--was that you should be the one in the driver's seat, not AI. The trick to using AI productively (and sanely) is to take ownership of your own work.</p>
 
-    <p>But how are you supposed to do that at Daemen? What counts as ownership?</p>
+    <p class="pull">But how are you supposed to do that at Daemen? What counts as ownership?</p>
 
     <p>Some grammar checkers like Grammarly run on AI these days. If you run the last draft of an essay through Grammarly before you submit it, do you no longer "own" the work? What if you have a low-stakes brainstorming session with ChatGPT, but then write everything yourself from that point on? What if Claude gives you an outline? What if Gemini gives you detailed and helpful editorial feedback?</p>
 
     <p>The bad news is: there's no one simple answer to these questions that will apply in each and every class you take. Your professors will all make their own decisions about where and when and if AI use will be appropriate in their courses. They'll ask themselves how they can best achieve their teaching goals--how they can install good habits of thinking, reflection, application, and so on--with the assignments they give. And different professors will arrive at different answers. Some of them will have different answers for different courses. And some of them will even have different answers within a single course, for different assignments.</p>
 
-    <p>That's the bad news. But the good news is: There's a really simple two-part trick you can use to know where you stand.</p>
+    <p>So that's the bad news. But the good news is: There's a really simple two-part trick you can use to know where you stand.</p>
 
     <div class="video">
       <div class="vlabel">Video</div>
@@ -210,9 +225,11 @@
       </div>
     </div>
 
-    <p>Artificial intelligence is changing everything. In your time at Daemen, you're going to have to make choices about when and how (and whether) you want to use it--as a collaborator, as a tutor, as a sparring partner. Nobody can make these decisions for you.</p>
+    <p>Artificial intelligence <em>is</em> changing everything. In your time at Daemen, you're going to have to make choices about when and how (and whether) you want to use it--as a collaborator, as a tutor, as a sparring partner. Nobody can make these decisions for you.</p>
 
     <p>And I can't give you a rulebook for a technology that won't hold still. Instead, I aimed to give you a skeptical mindset, a habit of asking yourself good questions that keeps you engaged and skeptical. If I did a good job, I've left you a little more informed and a little harder to fool.</p>
+
+    <div class="divider" aria-hidden="true"><span>✦</span></div>
 
     <p>I'll leave you with one last little demonstration. I fed a large language model everything you've just digested—every bit of text, all of the video transcripts—and asked it to build you a quick demonstration, an opportunity to practice the one concrete move I most want to stick. You'll get a handful of scenarios that will give you a chance to think about how you might react in a real classroom situation. See if you notice a pattern…</p>
 
