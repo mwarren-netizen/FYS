@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Module 2 · Brilliant Assistant, Pathological Liar — AI at Daemen</title>
+<style>
+  :root{
+    --night:#07070d; --grad-1:#0b0a16; --grad-2:#050509;
+    --panel:#0a0913; --panel-2:#12111d;
+    --ink:#eae4d3; --ink-dim:#9a937f;
+    --amber:#d9a05b; --slate:#7f9bb3; --rose:#c4798a;
+    --line:rgba(234,228,211,.10); --line-soft:rgba(234,228,211,.06);
+    --serif:"Palatino Linotype","Palatino LT STD","Book Antiqua",Palatino,Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --acc:var(--rose); /* module signature accent */
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--night);color:var(--ink);
+    font-family:var(--serif);font-size:19px;line-height:1.78;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+    position:relative;overflow-x:hidden;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;z-index:-2;
+    background:
+      radial-gradient(1200px 800px at 22% 4%, var(--grad-1) 0%, transparent 60%),
+      radial-gradient(1000px 900px at 85% 100%, var(--grad-2) 0%, transparent 55%),
+      var(--night);
+  }
+  body::after{
+    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.6;
+    background-image:
+      radial-gradient(1px 1px at 12% 22%, rgba(234,228,211,.28), transparent),
+      radial-gradient(1px 1px at 78% 14%, rgba(127,155,179,.26), transparent),
+      radial-gradient(1px 1px at 35% 70%, rgba(234,228,211,.16), transparent),
+      radial-gradient(1px 1px at 62% 48%, rgba(217,160,91,.18), transparent),
+      radial-gradient(1px 1px at 88% 78%, rgba(234,228,211,.14), transparent),
+      radial-gradient(1px 1px at 8% 88%, rgba(196,121,138,.16), transparent);
+  }
+  a{color:inherit}
+
+  .topnav{position:sticky;top:0;z-index:50;background:rgba(7,7,13,.82);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line-soft);}
+  .topnav .bar{max-width:62rem;margin:0 auto;padding:.85rem 1.6rem;
+    display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+  .brand{font-family:var(--sans);text-transform:uppercase;letter-spacing:.24em;
+    font-size:.62rem;font-weight:600;color:var(--ink-dim);text-decoration:none;white-space:nowrap;}
+  .brand:hover{color:var(--ink)}
+  .dots{display:flex;gap:.45rem;align-items:center}
+  .dots span{width:22px;height:3px;border-radius:2px;background:rgba(234,228,211,.16)}
+  .dots span.on{background:var(--acc)}
+  .navlinks{display:flex;gap:.4rem}
+  .navlinks a{font-family:var(--sans);font-size:.62rem;font-weight:600;letter-spacing:.16em;
+    text-transform:uppercase;text-decoration:none;color:var(--ink-dim);
+    border:1px solid var(--line);border-radius:999px;padding:.4rem .8rem;
+    transition:color .2s,border-color .2s;white-space:nowrap;}
+  .navlinks a:hover{color:var(--ink);border-color:rgba(234,228,211,.28)}
+
+  article{max-width:38rem;margin:0 auto;padding:0 1.6rem 4rem}
+  .mhead{padding:5rem 0 2.5rem;border-bottom:1px solid var(--line-soft);margin-bottom:3rem}
+  .mhead .kicker{font-family:var(--sans);text-transform:uppercase;letter-spacing:.34em;
+    font-size:.7rem;font-weight:600;color:var(--acc);margin-bottom:1.2rem;}
+  .mhead h1{font-family:var(--serif);font-weight:500;
+    font-size:clamp(2.1rem,5.8vw,3.4rem);line-height:1.06;letter-spacing:-.018em;margin:0;}
+
+  p{margin:0 0 1.5rem;color:#e4ddca}
+  em{font-style:italic;color:var(--ink)}
+
+  .dropcap::first-letter{font-family:var(--serif);float:left;font-size:4.6rem;line-height:.78;
+    padding:.34rem .55rem 0 0;color:var(--acc);font-weight:500;}
+
+  .key{color:var(--amber);font-style:italic;text-shadow:0 0 24px rgba(217,160,91,.18);}
+
+  .pull{margin:3rem 0;padding:.4rem 0 .4rem 1.6rem;border-left:3px solid var(--acc);
+    font-size:clamp(1.5rem,4.2vw,2rem);line-height:1.28;font-style:italic;color:var(--ink);letter-spacing:-.01em;}
+
+  .video{margin:3rem 0}
+  .video .vlabel{font-family:var(--sans);text-transform:uppercase;letter-spacing:.28em;
+    font-size:.6rem;font-weight:600;color:var(--ink-dim);
+    display:flex;align-items:center;gap:.7em;margin-bottom:.9rem;}
+  .video .vlabel::after{content:"";height:1px;flex:1;background:var(--line)}
+  .frame{position:relative;width:100%;padding-top:56.25%;border-radius:12px;overflow:hidden;
+    border:1px solid var(--line);background:#000;
+    box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 0 0 1px rgba(234,228,211,.03);}
+  .frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  /* portrait (Shorts) variant */
+  .frame.portrait{padding-top:0;aspect-ratio:9/16;max-width:330px;margin:0 auto}
+
+  .check{margin:3.5rem 0 1rem;background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);border-radius:14px;padding:1.9rem 1.8rem;}
+  .check .clabel{font-family:var(--sans);text-transform:uppercase;letter-spacing:.28em;
+    font-size:.64rem;font-weight:600;color:var(--amber);margin-bottom:.9rem;}
+  .check .q{font-size:1.18rem;line-height:1.5;margin:0 0 1.3rem;color:var(--ink)}
+  .opts{display:flex;flex-direction:column;gap:.6rem}
+  .opt{text-align:left;width:100%;cursor:pointer;font-family:var(--serif);font-size:1.02rem;color:#e4ddca;
+    background:rgba(234,228,211,.025);border:1px solid var(--line);border-radius:9px;
+    padding:.85rem 1rem .85rem 2.9rem;position:relative;
+    transition:border-color .2s,background .2s,color .2s;line-height:1.4;}
+  .opt .mk{position:absolute;left:.95rem;top:50%;transform:translateY(-50%);
+    width:1.35rem;height:1.35rem;border-radius:50%;border:1px solid rgba(234,228,211,.3);
+    font-family:var(--sans);font-size:.7rem;font-weight:600;
+    display:flex;align-items:center;justify-content:center;color:var(--ink-dim);transition:all .2s;}
+  .opt:hover{border-color:rgba(234,228,211,.3);background:rgba(234,228,211,.05)}
+  .opt:focus-visible{outline:2px solid var(--slate);outline-offset:2px}
+  .opt.correct{border-color:var(--amber);background:rgba(217,160,91,.10);color:var(--ink)}
+  .opt.correct .mk{border-color:var(--amber);background:var(--amber);color:var(--night)}
+  .opt.wrong{border-color:rgba(196,121,138,.5);background:rgba(196,121,138,.07)}
+  .opt.wrong .mk{border-color:var(--rose);color:var(--rose)}
+  .opt[disabled]{cursor:default}
+  .feedback{margin-top:1.2rem;font-size:1.02rem;line-height:1.5;min-height:1.2rem;font-style:italic;}
+  .feedback.ok{color:var(--amber)}
+  .feedback.no{color:var(--slate)}
+
+  .pager{max-width:62rem;margin:0 auto;padding:2rem 1.6rem 1rem;
+    display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+  .pager a{text-decoration:none;color:inherit;border:1px solid var(--line);border-radius:12px;
+    padding:1.2rem 1.4rem;transition:border-color .2s,background .2s,transform .2s;background:var(--panel);}
+  .pager a:hover{border-color:rgba(234,228,211,.26);transform:translateY(-2px)}
+  .pager a:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+  .pager .dir{font-family:var(--sans);text-transform:uppercase;letter-spacing:.2em;
+    font-size:.6rem;font-weight:600;color:var(--ink-dim);margin-bottom:.4rem;}
+  .pager .name{font-family:var(--serif);font-size:1.15rem;color:var(--ink);line-height:1.2}
+  .pager a.next{text-align:right}
+
+  footer{text-align:center;padding:3.5rem 1.6rem 4rem;color:var(--ink-dim);
+    font-family:var(--sans);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;}
+  footer .sep{opacity:.4;margin:0 .55em}
+
+  @media (max-width:560px){
+    body{font-size:18px}
+    .mhead{padding:3rem 0 2rem}
+    .pager{grid-template-columns:1fr}
+    .pager a.next{text-align:left}
+    .dropcap::first-letter{font-size:3.6rem}
+    .navlinks .lbl{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+  <nav class="topnav">
+    <div class="bar">
+      <a class="brand" href="index.html">AI at Daemen</a>
+      <div class="dots" aria-hidden="true"><span></span><span class="on"></span><span></span></div>
+      <div class="navlinks">
+        <a href="module-1.html">← Prev</a>
+        <a href="module-3.html">Next →</a>
+      </div>
+    </div>
+  </nav>
+
+  <article>
+    <header class="mhead">
+      <p class="kicker">Module Two</p>
+      <h1>Brilliant Assistant,<br>Pathological Liar</h1>
+    </header>
+
+    <p class="dropcap">Think about this: LLMs are trained on text, right? And the context that drives attention, that's all just text too. It's all just <em>words</em> for AI, patterns in text—that's the air it breathes, the water it swims in. It doesn't <em>live</em> in <em>our</em> world; it lives in a world of text.</p>
+
+    <p>So what happens when you ask it a question about the world? What happens when you try to get it to go beyond that text?</p>
+
+    <div class="video">
+      <div class="vlabel">Video</div>
+      <div class="frame portrait">
+        <iframe src="https://www.youtube-nocookie.com/embed/4z3dFX0ec9M" title="Going beyond the text" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+      </div>
+    </div>
+
+    <p>So what happened there?</p>
+
+    <p>Given what we've already learned about training and context, this shouldn't really be surprising. Remember: these things are—at least in some sense—autocomplete on steroids. And when push came to shove, the AI in the video did the same thing autocomplete does. From the text it's trained on, it's learned to associate running a mile with taking about 10 minutes. The likely continuation of "I ran a mile in about ____" is "10 minutes", in <em>just the same way</em> that the likely continuation of "Okay I'll be there in about _____" is "5 minutes".</p>
+
+    <p>In other words, when push came to shove, it did the same thing autocomplete does. The likely continuation of "I ran a mile in about" is "10 minutes", in just the same way that the likely continuation of "I'll be there in about" is "5 minutes". It didn't check its answer against a stop clock. It checked its answer against the geometry of its training.</p>
+
+    <div class="video">
+      <div class="vlabel">Video</div>
+      <div class="frame">
+        <iframe src="https://www.youtube-nocookie.com/embed/Z3KlMyBCH8g" title="Checking against the geometry of training" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+      </div>
+    </div>
+
+    <p>Now that's a problem. Because the thing is, these models sound like they know what they're doing. They sound smart. Oftentimes, they sound like authorities.</p>
+
+    <p>And in normal human conversations, when someone speaks confidently and fluently about a subject, we take that as a cue that they know what they're talking about. If someone can fluently say plausible medical jargon, we think there's a good chance they're a qualified medical professional. That's usually reasonable: in normal human conversations, fluency and confidence are reliable signals of competence.</p>
+
+    <p>But that connection isn't always there with AI. Since they've been trained on such a huge database of our writing, confidence and fluency comes easily--the text is practially drenched in it. They can easily produce the voice of authority even when they haven't earned it. The signal is no longer reliable.</p>
+
+    <p>So what does that means for us? Is there a way to use these things without getting fooled?</p>
+
+    <div class="video">
+      <div class="vlabel">Video</div>
+      <div class="frame">
+        <iframe src="https://www.youtube-nocookie.com/embed/CHymm5Hx0jo" title="Using AI without getting fooled" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+      </div>
+    </div>
+
+    <p>Okay, so three habits: don't lead the witness, proportion your trust, and check. They're all three worth remembering, and maybe you want to write them down. But I'll be realistic with myself--you probably don't want to write them down.</p>
+
+    <p class="pull">Stay in the driver's seat. Don't let the AI take the wheel.</p>
+
+    <p>So really, there's just one habit with three different faces, and that habit is: stay in the driver's seat. Don't let the AI take the wheel. Refuse to outsource your judgment. You decide what to ask and how to ask it. You decide how much you should trust, and you decide what's worth checking.</p>
+
+    <p>And I should also point out here that you decide what to put in, in the first place. The main point of this lesson is to underscore that the output of AI can't be trusted. But you should also keep in mind that the companies that run AI also can't be trusted. So: don't feed these things your personal information. No names, addresses, social security numbers, medical histories. Everything you input can be stored and fed into the training for the next iteration of the model. So be as careful about what you put in as you are about what you take out.</p>
+
+    <p>One last note: none of this is me trying to get you to be afraid of these tools. I use these tools all the time. They're genuinely remarkable. You can use them to pull things off that would have sounded like science fiction a few years ago.</p>
+
+    <p>If you use AI with your eyes open, you can use it to do a lot of cool stuff. If you use it critically, it'll be one more useful tool in your toolkit. Use AI with your eyes open and you can pull off some genuinely cool things. Use it critically, and it becomes one of the most useful tools you've got.</p>
+
+    <!-- Knowledge check -->
+    <section class="check" aria-label="Knowledge check">
+      <p class="clabel">Knowledge Check</p>
+      <p class="q">In Mata v. Avianca, ChatGPT produced six completely fake legal cases. Why?</p>
+      <div class="opts" role="group">
+        <button class="opt" data-correct="false"><span class="mk">A</span>It deliberately lied to the lawyer</button>
+        <button class="opt" data-correct="false"><span class="mk">B</span>It was malfunctioning that day</button>
+        <button class="opt" data-correct="true"><span class="mk">C</span>It gave a plausible continuation, with no concept of what's true</button>
+        <button class="opt" data-correct="false"><span class="mk">D</span>It didn't have enough legal training data</button>
+      </div>
+      <p class="feedback" role="status" aria-live="polite"></p>
+    </section>
+  </article>
+
+  <nav class="pager" aria-label="Module navigation">
+    <a class="prev" href="module-1.html">
+      <div class="dir">← Previous module</div>
+      <div class="name">How AI Works</div>
+    </a>
+    <a class="next" href="module-3.html">
+      <div class="dir">Next module →</div>
+      <div class="name">Owning Your Work</div>
+    </a>
+  </nav>
+
+  <footer>
+    Module 2 of 3 <span class="sep">·</span> AI at Daemen <span class="sep">·</span> Dr. Mark Warren
+  </footer>
+
+<script>
+  document.querySelectorAll('.check').forEach(function(check){
+    var okMsg = "Right — a plausible continuation, with no concept of what's true.";
+    var noMsg = "Not quite. Remember what autocomplete actually does — give it another look.";
+    var fb = check.querySelector('.feedback');
+    var opts = check.querySelectorAll('.opt');
+    opts.forEach(function(opt){
+      opt.addEventListener('click', function(){
+        if(opt.classList.contains('correct')) return;
+        if(opt.dataset.correct === 'true'){
+          opts.forEach(function(o){ o.classList.remove('wrong'); });
+          opt.classList.add('correct');
+          opts.forEach(function(o){ o.disabled = true; });
+          fb.textContent = okMsg; fb.className = 'feedback ok';
+        } else {
+          opt.classList.add('wrong');
+          fb.textContent = noMsg; fb.className = 'feedback no';
+        }
+      });
+    });
+  });
+</script>
+</body>
+</html>
